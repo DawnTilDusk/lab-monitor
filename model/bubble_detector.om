@@ -1,0 +1,31 @@
+# 昆仑哨兵·实验室多模态监控系统
+# NPU气泡检测模型文件 (bubble_detector.om)
+# 
+# 这是一个占位文件，用于系统架构中的模型文件路径引用
+# 实际的OM模型文件需要在部署时替换为此文件
+#
+# 模型要求：
+# - 格式：Ascend OM模型文件
+# - 芯片：Ascend 310P3
+# - CANN版本：6.3.RC1
+# - 输入形状：(1, 3, 480, 640) - BGR格式，HWC布局
+# - 输出：气泡计数（整数）
+#
+# 当前版本使用随机数模拟推理输出
+# 实际部署时需要：
+# 1. 训练好的气泡检测模型
+# 2. 使用ATC工具转换为OM格式
+# 3. 配置ACL推理接口
+#
+# 示例ATC转换命令：
+# atc --model=bubble_detector.onnx --framework=5 --output=bubble_detector \
+#     --input_shape="input:1,3,480,640" --soc_version=Ascend310P3
+#
+# 文件大小：此占位文件约为1KB
+# 实际OM模型文件大小通常为几MB到几十MB
+#
+# 部署路径：/home/openEuler/lab_monitor/model/bubble_detector.om
+# 注意：确保文件权限正确，应用有读取权限
+
+# 占位内容 - 可删除
+PLACEHOLDER_MODEL_FILE_FOR_KUNLUN_SENTINEL_LAB_MONITOR

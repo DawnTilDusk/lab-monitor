@@ -1,0 +1,19 @@
+{
+  "autostart": [
+    "model_01.py",
+    "model_02.py",
+    "model_03.py"
+  ],
+  "meta": {
+    "model_01.py": { "title": "温度均值评估", "description": "计算温度均值并汇总光敏/图像可用性" },
+    "model_02.py": { "title": "温度峰值监测", "description": "统计24小时温度峰值与图像路径/光敏状态" },
+    "model_03.py": { "title": "温度趋势估计", "description": "估计温度趋势斜率并汇报最新光敏/图像" },
+    "model_04.py": { "title": "温度最小值监测", "description": "统计12小时温度最小值并输出光敏/图像可用" },
+    "model_05.py": { "title": "环境告警评估", "description": "融合温度均值与光敏触发生成告警结论" },
+    "model_06.py": { "title": "温度斜率分析", "description": "分析24小时温度斜率变化与状态" },
+    "model_07.py": { "title": "温度波动度分析", "description": "统计温度标准差衡量短时波动" },
+    "model_08.py": { "title": "最新状态汇总", "description": "汇总最近两小时温度与最新光敏/图像" },
+    "model_09.py": { "title": "温度中位数分析", "description": "计算温度中位数增强鲁棒性" },
+    "model_10.py": { "title": "累积温度统计", "description": "计算多时段温度累积量" }
+  }
+}

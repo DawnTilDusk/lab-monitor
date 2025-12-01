@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="logo">昆仑哨兵</h1>
+                </div>
+                <div class="header-center">
+                    <nav class="header-tabs" aria-label="页面切换">
+                        <a href="/" class="tab-item">监控中心</a>
+                        <a href="/open-source" class="tab-item">开源社区</a>
+                        <a href="/db" class="tab-item active">数据库</a>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-status"><span class="status-dot"></span><span class="status-text">在线 · 板卡KL-2025</span></div>
+                    <div class="datetime" id="datetime"></div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="panel-section" id="left-panel">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                    <h2>表列表</h2>
+                    <button class="btn btn-primary" id="btn-refresh-tables">刷新列表</button>
+                </div>
+                <ul id="tables-list" class="script-overview-list"></ul>
+                
+            </div>
+
+            <div class="panel-section" id="right-panel">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                    <h2>数据查询</h2>
+                    <button class="btn btn-danger" id="btn-clear-forms" style="display:none;">清除表单</button>
+                </div>
+                <div id="form-select" style="display:none; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn-secondary" id="form-select-temp">温度表单</button>
+                        <button class="btn btn-secondary" id="form-select-light">光敏表单</button>
+                        <button class="btn btn-secondary" id="form-select-image">图像表单</button>
+                        <button class="btn btn-secondary" id="form-select-model">模型表单</button>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <label for="range-hours" style="color:#64748B;">最近小时</label>
+                        <select id="range-hours">
+                            <option value="6">6</option>
+                            <option value="12">12</option>
+                            <option value="24" selected>24</option>
+                            <option value="72">72</option>
+                        </select>
+                        <button class="btn btn-primary" id="btn-do-query">查询</button>
+                    </div>
+                </div>
+
+                <div id="query-result" style="margin-top:12px;"></div>
+                <div id="query-pager" style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    function renderTables(list){
+        const ul = document.getElementById('tables-list');
+        ul.innerHTML = (list || []).map(name => `<li class="script-item" data-name="${name}"><span>${name}</span></li>`).join('');
+        Array.from(ul.querySelectorAll('.script-item')).forEach(li => {
+            li.onclick = () => selectTable(li.getAttribute('data-name'), li);
+        });
+    }
+    const MAX_ROWS = 1000;
+    const PAGE_SIZE = 100;
+    let currentRows = [];
+    let currentCols = [];
+    let currentPage = 1;
+    let formsReady = false;
+    let selectedForm = null;
+    let selectedTable = null;
+
+    function renderQuery(res){
+        const el = document.getElementById('query-result');
+        if(res.error){ el.textContent = '查询失败'; return; }
+        currentCols = res.columns || [];
+        currentRows = (res.rows || []).slice(0, MAX_ROWS);
+        currentPage = 1;
+        renderPage(currentPage);
+        renderPager();
+    }
+
+    function renderPage(page){
+        const el = document.getElementById('query-result');
+        const start = (page - 1) * PAGE_SIZE;
+        const end = Math.min(start + PAGE_SIZE, currentRows.length);
+        const rows = currentRows.slice(start, end);
+        let html = '<div class="data-card"><div class="card-content"><div class="table-wrap">';
+        html += '<table class="query-table">';
+        html += '<thead><tr>' + currentCols.map(c => `<th>${c}</th>`).join('') + '</tr></thead>';
+        html += '<tbody>' + rows.map(r => {
+            return '<tr>' + r.map((v, idx) => {
+                const col = currentCols[idx] || '';
+                if(col === 'image_path' && v) {
+                    return `<td><a href="${v}" target="_blank" rel="noopener">${v}</a></td>`;
+                }
+                return `<td>${v === null ? '' : v}</td>`;
+            }).join('') + '</tr>';
+        }).join('') + '</tbody>';
+        html += '</table>';
+        html += '</div></div></div>';
+        el.innerHTML = html;
+        currentPage = page;
+    }
+
+    function renderPager(){
+        const pager = document.getElementById('query-pager');
+        const totalPages = Math.max(1, Math.ceil(currentRows.length / PAGE_SIZE));
+        let html = '';
+        html += `<button class="btn btn-secondary" ${currentPage<=1?'disabled':''} id="pg-prev">上一页</button>`;
+        for(let i=1;i<=totalPages;i++){
+            html += `<button class="btn ${i===currentPage?'btn-primary':'btn-secondary'}" data-pg="${i}">${i}</button>`;
+        }
+        html += `<button class="btn btn-secondary" ${currentPage>=totalPages?'disabled':''} id="pg-next">下一页</button>`;
+        pager.innerHTML = html;
+        const btns = Array.from(pager.querySelectorAll('button[data-pg]'));
+        btns.forEach(b => { b.onclick = () => renderPage(parseInt(b.getAttribute('data-pg'))); });
+        const prev = document.getElementById('pg-prev');
+        const next = document.getElementById('pg-next');
+        if(prev) prev.onclick = () => { if(currentPage>1) renderPage(currentPage-1); };
+        if(next) next.onclick = () => { const tp=Math.ceil(currentRows.length/PAGE_SIZE); if(currentPage<tp) renderPage(currentPage+1); };
+    }
+
+    function ensureLimit(sql){
+        const s = (sql || '').trim();
+        const hasLimit = /\blimit\b/i.test(s) || /fetch\s+first/i.test(s);
+        if(hasLimit) return s;
+        return `${s} LIMIT ${MAX_ROWS}`;
+    }
+    function selectTable(name, li){
+        const ul = document.getElementById('tables-list');
+        Array.from(ul.querySelectorAll('.script-item')).forEach(x => { x.style.borderColor = 'var(--color-border)'; });
+        if(li){ li.style.borderColor = 'var(--color-primary)'; }
+        selectedTable = name;
+        const n = String(name || '').toLowerCase();
+        const clearBtn = document.getElementById('btn-clear-forms');
+        if(n === 'sensor_data'){
+            showFormSelector();
+            setForm('temp');
+            updateFormButtonsForTable();
+            if(clearBtn) clearBtn.style.display = 'inline-flex';
+        } else if(n === 'model_outputs'){
+            showFormSelector();
+            setForm('model');
+            updateFormButtonsForTable();
+            if(clearBtn) clearBtn.style.display = 'none';
+        } else {
+            const fs = document.getElementById('form-select');
+            fs.style.display = 'none';
+            selectedForm = null;
+            if(clearBtn) clearBtn.style.display = 'none';
+        }
+    }
+    function updateFormButtonsForTable(){
+        const btnTemp = document.getElementById('form-select-temp');
+        const btnLight = document.getElementById('form-select-light');
+        const btnImage = document.getElementById('form-select-image');
+        const btnModel = document.getElementById('form-select-model');
+        const n = String(selectedTable || '').toLowerCase();
+        if(n === 'sensor_data'){
+            if(btnTemp) btnTemp.style.display = 'inline-flex';
+            if(btnLight) btnLight.style.display = 'inline-flex';
+            if(btnImage) btnImage.style.display = 'inline-flex';
+            if(btnModel) btnModel.style.display = 'none';
+        } else if(n === 'model_outputs'){
+            if(btnTemp) btnTemp.style.display = 'none';
+            if(btnLight) btnLight.style.display = 'none';
+            if(btnImage) btnImage.style.display = 'none';
+            if(btnModel) btnModel.style.display = 'inline-flex';
+        } else {
+            if(btnTemp) btnTemp.style.display = 'none';
+            if(btnLight) btnLight.style.display = 'none';
+            if(btnImage) btnImage.style.display = 'none';
+            if(btnModel) btnModel.style.display = 'none';
+        }
+    }
+    function getDefaultFormForTable(name){
+        const n = String(name || '').toLowerCase();
+        if(n.includes('sensor_data') || n.includes('temp') || n.includes('温度')) return 'temp';
+        if(n.includes('light') || n.includes('光')) return 'light';
+        if(n.includes('image') || n.includes('camera') || n.includes('图像')) return 'image';
+        if(n.includes('model')) return 'model';
+        return 'temp';
+    }
+    function showFormSelector(){
+        const fs = document.getElementById('form-select');
+        fs.style.display = 'flex';
+    }
+    function hideFormSelector(){
+        const fs = document.getElementById('form-select');
+        fs.style.display = 'none';
+    }
+    function setForm(type){
+        selectedForm = type;
+        const btnTemp = document.getElementById('form-select-temp');
+        const btnLight = document.getElementById('form-select-light');
+        const btnImage = document.getElementById('form-select-image');
+        const btnModel = document.getElementById('form-select-model');
+        const all = [btnTemp, btnLight, btnImage, btnModel];
+        all.forEach(b => { if(!b) return; b.classList.remove('btn-primary'); b.classList.remove('btn-secondary'); b.classList.add('btn-secondary'); });
+        if(type === 'temp') { btnTemp.classList.remove('btn-secondary'); btnTemp.classList.add('btn-primary'); }
+        if(type === 'light') { btnLight.classList.remove('btn-secondary'); btnLight.classList.add('btn-primary'); }
+        if(type === 'image') { btnImage.classList.remove('btn-secondary'); btnImage.classList.add('btn-primary'); }
+        if(type === 'model') { if(btnModel){ btnModel.classList.remove('btn-secondary'); btnModel.classList.add('btn-primary'); } }
+    }
+    document.getElementById('btn-refresh-tables').onclick = () => {
+        fetch('/api/db/tables').then(r=>r.json()).then(list => {
+            renderTables(list);
+            formsReady = true;
+            hideFormSelector();
+            selectedForm = null;
+            document.getElementById('query-result').innerHTML = '';
+            document.getElementById('query-pager').innerHTML = '';
+            const clearBtn = document.getElementById('btn-clear-forms');
+            if(clearBtn) clearBtn.style.display = 'none';
+            if(Array.isArray(list) && list.indexOf('sensor_data') !== -1){
+                const li = document.querySelector('#tables-list .script-item[data-name="sensor_data"]');
+                if(li) selectTable('sensor_data', li);
+            }
+        });
+    };
+    function queryTemp(h){
+        const sql = ensureLimit(`SELECT timestamp, temperature FROM sensor_data WHERE timestamp > NOW() - INTERVAL '${h} hours' ORDER BY timestamp ASC`);
+        fetch('/api/db/query', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sql}) })
+            .then(r=>r.json()).then(renderQuery);
+    }
+    function queryLight(h){
+        const sql = ensureLimit(`SELECT timestamp, light FROM sensor_data WHERE light IS NOT NULL AND timestamp > NOW() - INTERVAL '${h} hours' ORDER BY timestamp ASC`);
+        fetch('/api/db/query', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sql}) })
+            .then(r=>r.json()).then(renderQuery);
+    }
+    function queryImage(h){
+        const sql = ensureLimit(`SELECT timestamp, image_path FROM sensor_data WHERE image_path IS NOT NULL AND timestamp > NOW() - INTERVAL '${h} hours' ORDER BY timestamp DESC`);
+        fetch('/api/db/query', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sql}) })
+            .then(r=>r.json()).then(renderQuery);
+    }
+    function queryModel(h){
+        const sql = ensureLimit(`SELECT created_at, name, output FROM model_outputs WHERE created_at > NOW() - INTERVAL '${h} hours' ORDER BY created_at DESC`);
+        fetch('/api/db/query', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sql}) })
+            .then(r=>r.json()).then(renderQuery);
+    }
+    document.getElementById('form-select-temp').onclick = () => setForm('temp');
+    document.getElementById('form-select-light').onclick = () => setForm('light');
+    document.getElementById('form-select-image').onclick = () => setForm('image');
+    document.getElementById('form-select-model').onclick = () => setForm('model');
+    document.getElementById('btn-do-query').onclick = () => {
+        if(!formsReady) return;
+        const h = parseInt(document.getElementById('range-hours').value || '24', 10);
+        if(selectedForm === 'temp') return queryTemp(h);
+        if(selectedForm === 'light') return queryLight(h);
+        if(selectedForm === 'image') return queryImage(h);
+        if(selectedForm === 'model') return queryModel(h);
+    };
+    const btnClearForms = document.getElementById('btn-clear-forms');
+    if(btnClearForms){
+        btnClearForms.onclick = () => {
+            const ok = window.confirm('确认清除表单？这将隐藏查询选项并清空数据库中的 sensor_data');
+            if(!ok) return;
+            fetch('/api/db/clear', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({table:'sensor_data'}) })
+                .then(r=>r.json()).then(_ => {
+                    hideFormSelector();
+                    selectedForm = null;
+                    document.getElementById('query-result').innerHTML = '';
+                    document.getElementById('query-pager').innerHTML = '';
+                    btnClearForms.style.display = 'none';
+                    const ul = document.getElementById('tables-list');
+                    Array.from(ul.querySelectorAll('.script-item')).forEach(x => { x.style.borderColor = 'var(--color-border)'; });
+                });
+        };
+    }
+    document.getElementById('btn-refresh-tables').click();
+    
+    </script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开源社区 - 昆仑哨兵实验室监控系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部导航栏 -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">昆仑哨兵</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-item">监控中心</a>
+                    <a href="/community" class="nav-item active">开源社区</a>
+                </nav>
+                <div class="datetime" id="datetime"></div>
+            </div>
+        </header>
+
+        <!-- 社区页面主要内容 -->
+        <main class="community-main">
+            <!-- 页面标题区域 -->
+            <section class="community-hero">
+                <div class="hero-content">
+                    <h1 class="hero-title">共建多模态实验室生态 · 昆仑哨兵开源社区</h1>
+                    <p class="hero-subtitle">汇聚实验室专用AI模型，推动科研智能化发展</p>
+                </div>
+            </section>
+
+            <!-- 模型展示区域 -->
+            <section class="models-showcase">
+                <div class="section-header">
+                    <h2>社区贡献模型</h2>
+                    <p>精选实验室场景专用模型，持续更新中...</p>
+                </div>
+
+                <div class="models-grid">
+                    <!-- 模型卡片1：气泡检测 -->
+                    <div class="model-card">
+                        <div class="badge badge-community">开源社区</div>
+                        <div class="model-thumbnail">
+                            <div class="thumbnail-placeholder bubble-detection">
+                                <span class="thumbnail-icon">💧</span>
+                                <span class="thumbnail-text">气泡检测</span>
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <h3 class="model-name">Bubble-YOLOv5n-480.om</h3>
+                            <p class="model-description">适用于透明溶液气泡快速计数，mAP@0.5 = 0.89</p>
+                            <div class="model-meta">
+                                <span class="model-author">@LabAlpha, ZJU</span>
+                                <span class="model-license">Apache-2.0</span>
+                            </div>
+                            <div class="tag-list">
+                                <span class="tag tag-university">高校：ZJU</span>
+                                <span class="tag tag-lab">实验室：LabAlpha</span>
+                                <span class="tag tag-topic">方向：气泡检测</span>
+                            </div>
+                        </div>
+                        <div class="model-actions">
+                            <a href="#" class="btn-download">
+                                <span class="btn-icon">⬇️</span>
+                                下载模型
+                            </a>
+                            <p class="contribution-note">模型由社区贡献 · 遵循 Apache-2.0 协议</p>
+                        </div>
+                    </div>
+
+                    <!-- 模型卡片2：液位识别 -->
+                    <div class="model-card">
+                        <div class="badge badge-community">开源社区</div>
+                        <div class="model-thumbnail">
+                            <div class="thumbnail-placeholder level-detection">
+                                <span class="thumbnail-icon">📊</span>
+                                <span class="thumbnail-text">液位识别</span>
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <h3 class="model-name">LiquidLevel-ResNet50.om</h3>
+                            <p class="model-description">精确识别实验容器液位高度，误差范围±1mm</p>
+                            <div class="model-meta">
+                                <span class="model-author">@BioLab, THU</span>
+                                <span class="model-license">Apache-2.0</span>
+                            </div>
+                            <div class="tag-list">
+                                <span class="tag tag-university">高校：THU</span>
+                                <span class="tag tag-lab">实验室：BioLab</span>
+                                <span class="tag tag-topic">方向：液位识别</span>
+                            </div>
+                        </div>
+                        <div class="model-actions">
+                            <a href="#" class="btn-download">
+                                <span class="btn-icon">⬇️</span>
+                                下载模型
+                            </a>
+                            <p class="contribution-note">模型由社区贡献 · 遵循 Apache-2.0 协议</p>
+                        </div>
+                    </div>
+
+                    <!-- 模型卡片3：结晶计数 -->
+                    <div class="model-card">
+                        <div class="badge badge-community">开源社区</div>
+                        <div class="model-thumbnail">
+                            <div class="thumbnail-placeholder crystal-detection">
+                                <span class="thumbnail-icon">💎</span>
+                                <span class="thumbnail-text">结晶计数</span>
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <h3 class="model-name">CrystalCounter-MobileNet.om</h3>
+                            <p class="model-description">自动统计结晶体数量，支持多种晶型识别</p>
+                            <div class="model-meta">
+                                <span class="model-author">@ChemTeam, PKU</span>
+                                <span class="model-license">Apache-2.0</span>
+                            </div>
+                            <div class="tag-list">
+                                <span class="tag tag-university">高校：PKU</span>
+                                <span class="tag tag-lab">实验室：ChemTeam</span>
+                                <span class="tag tag-topic">方向：结晶计数</span>
+                            </div>
+                        </div>
+                        <div class="model-actions">
+                            <a href="#" class="btn-download">
+                                <span class="btn-icon">⬇️</span>
+                                下载模型
+                            </a>
+                            <p class="contribution-note">模型由社区贡献 · 遵循 Apache-2.0 协议</p>
+                        </div>
+                    </div>
+
+                    <!-- 模型卡片4：颜色分析 -->
+                    <div class="model-card">
+                        <div class="badge badge-community">开源社区</div>
+                        <div class="model-thumbnail">
+                            <div class="thumbnail-placeholder color-analysis">
+                                <span class="thumbnail-icon">🎨</span>
+                                <span class="thumbnail-text">颜色分析</span>
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <h3 class="model-name">ColorAnalysis-EfficientNet.om</h3>
+                            <p class="model-description">溶液颜色变化分析，支持RGB和HSV双色彩空间</p>
+                            <div class="model-meta">
+                                <span class="model-author">@VisionLab, SJTU</span>
+                                <span class="model-license">Apache-2.0</span>
+                            </div>
+                            <div class="tag-list">
+                                <span class="tag tag-university">高校：SJTU</span>
+                                <span class="tag tag-lab">实验室：VisionLab</span>
+                                <span class="tag tag-topic">方向：颜色分析</span>
+                            </div>
+                        </div>
+                        <div class="model-actions">
+                            <a href="#" class="btn-download">
+                                <span class="btn-icon">⬇️</span>
+                                下载模型
+                            </a>
+                            <p class="contribution-note">模型由社区贡献 · 遵循 Apache-2.0 协议</p>
+                        </div>
+                    </div>
+
+                    <!-- 模型卡片5：沉淀检测 -->
+                    <div class="model-card">
+                        <div class="badge badge-community">开源社区</div>
+                        <div class="model-thumbnail">
+                            <div class="thumbnail-placeholder sediment-detection">
+                                <span class="thumbnail-icon">🌊</span>
+                                <span class="thumbnail-text">沉淀检测</span>
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <h3 class="model-name">SedimentDetect-DenseNet.om</h3>
+                            <p class="model-description">检测溶液中沉淀物形成，预警异常反应</p>
+                            <div class="model-meta">
+                                <span class="model-author">@AnalyticalLab, CAS</span>
+                                <span class="model-license">Apache-2.0</span>
+                            </div>
+                            <div class="tag-list">
+                                <span class="tag tag-university">高校：CAS</span>
+                                <span class="tag tag-lab">实验室：AnalyticalLab</span>
+                                <span class="tag tag-topic">方向：沉淀检测</span>
+                            </div>
+                        </div>
+                        <div class="model-actions">
+                            <a href="#" class="btn-download">
+                                <span class="btn-icon">⬇️</span>
+                                下载模型
+                            </a>
+                            <p class="contribution-note">模型由社区贡献 · 遵循 Apache-2.0 协议</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 社区贡献号召 -->
+            <section class="community-cta">
+                <div class="cta-content">
+                    <h2>贡献您的实验室专用模型</h2>
+                    <p>加入我们的开源社区，分享您的研究成果，共同推动实验室智能化发展</p>
+                    <div class="cta-links">
+                        <a href="https://github.com/kunlunsentinel/lab-models" target="_blank" class="btn-github">
+                            <span class="btn-icon">🐙</span>
+                            GitHub: github.com/kunlunsentinel/lab-models
+                        </a>
+                        <p class="cta-note">欢迎提交PR，一起建设更强大的实验室AI生态系统</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 页面底部 -->
+        <footer class="community-footer">
+            <div class="footer-content">
+                <p>&copy; 2024 昆仑哨兵开源社区 · 致力于实验室智能化发展</p>
+                <p>所有模型均遵循 Apache-2.0 开源协议</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // 更新日期时间
+        function updateDateTime() {
+            const now = new Date();
+            const dateTimeString = now.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('datetime').textContent = dateTimeString;
+        }
+
+        // 初始化
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 下载按钮点击事件
+        document.querySelectorAll('.btn-download').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                alert('模型下载功能演示：\n\n在实际部署中，这里会提供真实的模型文件下载。\n当前为演示版本，点击下载按钮将跳转到GitHub仓库。');
+                // 实际项目中可以跳转到GitHub
+                // window.open('https://github.com/kunlunsentinel/lab-models', '_blank');
+            });
+        });
+    </script>
+</body>
+</html>

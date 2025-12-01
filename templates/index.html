@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>昆仑哨兵·脚本化边缘监控平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部导航栏 -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="logo">昆仑哨兵</h1>
+                </div>
+                <div class="header-center">
+                    <nav class="header-tabs" aria-label="页面切换">
+                        <a href="/" class="tab-item active">监控中心</a>
+                        <a href="/open-source" class="tab-item">开源社区</a>
+                        <a href="/db" class="tab-item">数据库</a>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="header-status"><span class="status-dot"></span><span class="status-text">在线 · 板卡KL-2025</span></div>
+                    <div class="datetime" id="datetime"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 左侧数据面板 -->
+            <div class="data-panel">
+                <div class="panel-section">
+                    <h2>实时数据</h2>
+                    
+                    <!-- 温度卡片 -->
+                    <div class="data-card">
+                        <div class="card-header">
+                            <span class="card-icon">🌡️</span>
+                            <h3>温度监测</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="temperature-value temperature-value-high" id="temperature">--</div>
+                            <div class="temperature-unit temperature-unit-high">°C</div>
+                        </div>
+                        <div class="card-footer">
+                            <span class="sensor-status status-indicator" id="temp-status">状态检测中...</span>
+                            <span class="update-time" id="temp-updated">更新时间: --</span>
+                        </div>
+                    </div>
+
+                    
+
+                    <!-- 光敏值卡片 -->
+                    <div class="data-card">
+                        <div class="card-header">
+                            <span class="card-icon">💡</span>
+                            <h3>光敏值</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="light-value light-value-high" id="light-value">--</div>
+                            <div class="light-unit">lx</div>
+                        </div>
+                        <div class="card-footer">
+                            <span class="sensor-status" id="light-status">状态检测中...</span>
+                            <span class="update-time" id="light-updated">更新时间: --</span>
+                        </div>
+                    </div>
+
+                    <!-- 最新图像卡片 -->
+                    <div class="data-card">
+                        <div class="card-header">
+                            <span class="card-icon">📷</span>
+                            <h3>最新图像</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="image-container">
+                                <img id="latest-image" src="" alt="最新图像" style="display:none;">
+                                <div id="no-image" class="no-image">暂无图像</div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <span class="sensor-status" id="camera-status">状态检测中...</span>
+                            <span class="update-time" id="image-updated">更新时间: --</span>
+                        </div>
+                    </div>
+                </div>
+
+                
+            </div>
+
+            <!-- 右侧图表区域 -->
+            <div class="chart-panel">
+                <div class="panel-section">
+                    <h2>数据趋势</h2>
+                    
+                    <!-- 温度趋势图 -->
+                    <div class="chart-container">
+                        <h3>温度趋势 (24小时)</h3>
+                        <div id="temperature-chart" class="chart"></div>
+                    </div>
+
+                    
+
+                    
+                </div>
+
+                <!-- 系统状态 -->
+                <div class="panel-section">
+                    <h2>系统状态</h2>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <span class="status-label">DS18B20传感器:</span>
+                            <span id="status-ds18b20" class="status-value">检测中...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">光敏电阻传感器:</span>
+                            <span id="status-light" class="status-value">检测中...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">UVC摄像头:</span>
+                            <span id="status-camera" class="status-value">检测中...</span>
+                        </div>
+                        
+                        <div class="status-item">
+                            <span class="status-label">数据库连接:</span>
+                            <span id="status-db" class="status-value">检测中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-section script-panel" id="models-overview">
+                <h2>当前板卡模型</h2>
+                <div id="model-overview-list" class="script-overview-list" aria-live="polite"></div>
+            </div>
+        </main>
+
+        <!-- 加载提示 -->
+        <div id="loading" class="loading" style="display:none;">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">数据采集进行中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
