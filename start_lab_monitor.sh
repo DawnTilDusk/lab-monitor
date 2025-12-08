@@ -208,6 +208,40 @@ if [ "$DATA_OWNER" != "$USER" ] || [ "$LOG_OWNER" != "$USER" ]; then
   echo "[HINT] 如需修复：sudo chown -R $USER:$USER $DATA_DIR $LOG_DIR"
 fi
 
+# 自动修复 sudoers 权限 (440)
+SUDOERS_FILE="/etc/sudoers.d/kunlun-sentinel"
+if [ -f "$SUDOERS_FILE" ]; then
+  CURRENT_PERM=$(stat -c "%a" "$SUDOERS_FILE" 2>/dev/null || echo "000")
+  if [ "$CURRENT_PERM" != "440" ]; then
+    echo "[INIT] 修复 sudoers 文件权限 ($CURRENT_PERM -> 440)..."
+    if sudo -n chmod 440 "$SUDOERS_FILE" 2>/dev/null; then
+      echo "[INIT] sudoers 权限修复成功"
+    else
+      # 尝试交互式 sudo
+      if sudo chmod 440 "$SUDOERS_FILE"; then
+        echo "[INIT] sudoers 权限修复成功 (交互式)"
+      else
+        echo "[WARN] 无法修复 $SUDOERS_FILE 权限，免密 sudo 可能失效"
+      fi
+    fi
+  fi
+fi
+
+# 自动修复 gpio_operate 执行权限 (o+rx)
+GPIO_OP="/usr/bin/gpio_operate"
+if [ -f "$GPIO_OP" ] && [ ! -x "$GPIO_OP" ]; then
+    echo "[INIT] 修复 gpio_operate 执行权限..."
+    if sudo -n chmod o+rx "$GPIO_OP" 2>/dev/null; then
+      echo "[INIT] gpio_operate 权限修复成功"
+    else
+      if sudo chmod o+rx "$GPIO_OP"; then
+         echo "[INIT] gpio_operate 权限修复成功 (交互式)"
+      else
+         echo "[WARN] 无法修复 $GPIO_OP 权限，光敏采集可能失败"
+      fi
+    fi
+fi
+
 ############################
 # 前置校验
 ############################
