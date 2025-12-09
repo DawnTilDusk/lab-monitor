@@ -456,6 +456,8 @@ def get_history_data(hours=24):
             SELECT timestamp, temperature
             FROM sensor_data
             WHERE timestamp > NOW() - INTERVAL '%s hours'
+              AND temperature <> 0
+              AND temperature > -40 AND temperature < 125
             ORDER BY timestamp ASC
         """, (hours,))
         rows = cursor.fetchall()
@@ -656,6 +658,7 @@ def api_relay_notify():
     t = data.get('temperature')
     l = data.get('light')
     p = data.get('image_path')
+    ts_ms = data.get('timestamp_ms')
     ts = int(time.time())
     if t is not None:
         HEARTBEAT['temp'] = ts
@@ -664,13 +667,20 @@ def api_relay_notify():
     if p:
         HEARTBEAT['image'] = ts
     cur = LATEST_CACHE or {}
-    if t is not None:
-        cur['temperature'] = t
+    try:
+        valid_temp = (t is not None) and (t != 0) and (-40 < float(t) < 125)
+    except Exception:
+        valid_temp = False
+    if valid_temp:
+        cur['temperature'] = float(t)
     if l is not None:
         cur['light'] = l
     if p:
         cur['image_path'] = p
-    cur['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(ts_ms, (int, float)) and ts_ms > 0:
+        cur['timestamp'] = datetime.fromtimestamp(ts_ms/1000.0).strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        cur['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cur['sensor_status'] = build_status()
     LATEST_CACHE = cur
     try:
