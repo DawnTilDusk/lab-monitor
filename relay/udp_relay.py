@@ -125,7 +125,7 @@ def ensure_image_uptime():
                 if p:
                     try:
                         conn = db_connect()
-                        insert_db(conn, 0.0, p, None, None)
+                        insert_db(conn, 0.0, p, None, None, 1)
                         try:
                             conn.close()
                         except Exception:
@@ -139,18 +139,18 @@ def ensure_image_uptime():
         except Exception:
             time.sleep(1)
 
-def insert_db(conn, temp, image_path, light, ts_ms=None):
+def insert_db(conn, temp, image_path, light, ts_ms=None, bubble=0):
     cur = conn.cursor()
     try:
         if ts_ms is None:
             cur.execute(
-                "INSERT INTO sensor_data (temperature, image_path, light) VALUES (%s,%s,%s)",
-                (float(temp) if temp is not None else 0.0, str(image_path), None if light is None else int(light)),
+                "INSERT INTO sensor_data (temperature, image_path, light, bubble_count) VALUES (%s,%s,%s,%s)",
+                (float(temp) if temp is not None else 0.0, str(image_path), None if light is None else int(light), int(bubble)),
             )
         else:
             cur.execute(
-                "INSERT INTO sensor_data (temperature, image_path, light, timestamp) VALUES (%s,%s,%s, to_timestamp(%s/1000.0))",
-                (float(temp) if temp is not None else 0.0, str(image_path), None if light is None else int(light), int(ts_ms)),
+                "INSERT INTO sensor_data (temperature, image_path, light, timestamp, bubble_count) VALUES (%s,%s,%s, to_timestamp(%s/1000.0), %s)",
+                (float(temp) if temp is not None else 0.0, str(image_path), None if light is None else int(light), int(ts_ms), int(bubble)),
             )
         conn.commit()
     except Exception:
@@ -259,7 +259,7 @@ def main():
                 except Exception:
                     pass
             if conn is not None:
-                insert_db(conn, temp_c if temp_c is not None else 0.0, image_path, light, ts_ms)
+                insert_db(conn, temp_c if temp_c is not None else 0.0, image_path, light, ts_ms, 0 if temp_c is not None else 1)
             payload = {"temperature": temp_c, "light": light, "image_path": image_path, "timestamp_ms": ts_ms}
             schedule_delete(image_path)
             notify_backend(payload)

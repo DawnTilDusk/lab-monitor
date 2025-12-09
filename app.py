@@ -456,7 +456,7 @@ def get_history_data(hours=24):
             SELECT timestamp, temperature
             FROM sensor_data
             WHERE timestamp > NOW() - INTERVAL '%s hours'
-              AND temperature <> 0
+              AND (bubble_count IS NULL OR bubble_count = 0)
               AND temperature > -40 AND temperature < 125
             ORDER BY timestamp ASC
         """, (hours,))
@@ -668,7 +668,7 @@ def api_relay_notify():
         HEARTBEAT['image'] = ts
     cur = LATEST_CACHE or {}
     try:
-        valid_temp = (t is not None) and (t != 0) and (-40 < float(t) < 125)
+        valid_temp = (t is not None) and (-40 < float(t) < 125)
     except Exception:
         valid_temp = False
     if valid_temp:

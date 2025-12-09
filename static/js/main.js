@@ -157,7 +157,7 @@ function updateLatestDisplay(data) {
     const tempElement = document.getElementById('temperature');
     if (tempElement && Object.prototype.hasOwnProperty.call(data, 'temperature')) {
         const t = data.temperature;
-        if (typeof t === 'number' && t !== 0 && t > -40 && t < 125) {
+        if (typeof t === 'number' && t > -40 && t < 125) {
             tempElement.textContent = t.toFixed(1);
             tempElement.classList.remove('temp-high', 'temp-normal');
             if (t > 35) {
@@ -264,7 +264,7 @@ function updateCharts(data) {
     if (!temperatureChart) return;
     const raw = (data && data.temperature_data) ? data.temperature_data : [];
     temperatureSeries = raw
-        .filter(it => typeof it.value === 'number' && it.value !== 0 && it.value > -40 && it.value < 125)
+        .filter(it => typeof it.value === 'number' && it.value > -40 && it.value < 125)
         .map(it => [new Date(it.timestamp), it.value]);
     temperatureAnomalies = [];
     for (let i = 1; i < raw.length; i++) {
@@ -720,7 +720,7 @@ function connectEvents() {
 
 function appendTemperaturePoint(tsText, t) {
     try {
-        if (typeof t !== 'number' || t === 0 || t <= -40 || t >= 125) return;
+        if (typeof t !== 'number' || t <= -40 || t >= 125) return;
         const ts = new Date(tsText);
         temperatureSeries.push([ts, t]);
         const cutoff = Date.now() - 24 * 3600 * 1000;
