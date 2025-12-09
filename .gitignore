@@ -1,1 +1,21 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.o
+*.out
+sensor_collectors/sensor_temp_collector
+sensor_collectors/sensor_light_collector
+sensor_collectors/sensor_image_collector
+__pycache__/
+*.pyc
+
+# Runtime data
 static/images/*.jpg
+runtime/
+*.log
+opengauss_logs/
+opengauss_data/
+
+static/images/*.png

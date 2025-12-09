@@ -114,11 +114,12 @@ int main() {
 
     // 尝试打开串口设备
     // 扫描列表：Arduino USB, USB转串口, 板载串口
+    // 优先尝试 USB 设备，最后尝试板载串口
     const char *dev_list[] = {
-        "/dev/ttyACM0", // Arduino Uno USB
+        "/dev/ttyACM0", // Arduino Uno USB (优先)
         "/dev/ttyUSB0", // USB-TTL
+        "/dev/ttyAMA2", // 板载串口 2 (Pin 11/36)
         "/dev/ttyAMA1", // 板载串口 1
-        "/dev/ttyAMA2", // 板载串口 2
         "/dev/ttyS0",   // 板载 Mini UART
         NULL
     };
