@@ -418,7 +418,9 @@ def get_latest_data():
         cursor = conn.cursor()
         cursor.execute("""
             SELECT temperature, image_path, light, timestamp
-            FROM sensor_data ORDER BY timestamp DESC LIMIT 1
+            FROM sensor_data 
+            WHERE (bubble_count IS NULL OR bubble_count = 0)
+            ORDER BY timestamp DESC LIMIT 1
         """)
         row = cursor.fetchone()
         if not row:
@@ -666,6 +668,11 @@ def api_relay_notify():
         HEARTBEAT['light'] = ts
     if p:
         HEARTBEAT['image'] = ts
+    
+    # 如果缓存为空，先尝试从数据库加载最新状态（包含已有的温度/光照等）
+    if not LATEST_CACHE:
+        LATEST_CACHE = get_latest_data()
+        
     cur = LATEST_CACHE or {}
     try:
         valid_temp = (t is not None) and (-40 < float(t) < 125)
