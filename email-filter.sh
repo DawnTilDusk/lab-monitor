@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # 这里设置你的旧邮箱（错误的那个）
-WRONG_EMAIL="4300917@qq.com"
+WRONG_EMAIL="lab.monitor@example.local"
 
 # 这里设置你的新邮箱（正确的那个）
 NEW_NAME="DawnTilDusk"
