@@ -18,5 +18,6 @@ runtime/
 *.log
 opengauss_logs/
 opengauss_data/
+.json
 
 static/images/*.png
