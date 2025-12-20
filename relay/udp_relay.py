@@ -528,8 +528,7 @@ def main():
                 if light is not None:
                     insert_light_db(conn, light, ts_ms=ts_ms)
                 
-                # 为了向后兼容，同时插入到原表
-                insert_db(conn, temp_c if temp_c is not None else 0.0, image_path, light, ts_ms, 0 if temp_c is not None else 1)
+                
             
             payload = {"temperature": temp_c, "light": light, "image_path": image_path, "timestamp_ms": ts_ms}
             schedule_delete(image_path)

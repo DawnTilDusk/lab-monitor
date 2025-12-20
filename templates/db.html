@@ -105,8 +105,9 @@
         html += '<tbody>' + rows.map(r => {
             return '<tr>' + r.map((v, idx) => {
                 const col = currentCols[idx] || '';
-                if(col === 'image_path' && v) {
-                    return `<td><a href="${v}" target="_blank" rel="noopener">${v}</a></td>`;
+                if(col === 'image_path' && v){
+                    const s = String(v||'').trim().toLowerCase();
+                    if(s && s !== 'none') return `<td><a href="${v}" target="_blank" rel="noopener">${v}</a></td>`;
                 }
                 return `<td>${v === null ? '' : v}</td>`;
             }).join('') + '</tr>';
@@ -244,9 +245,17 @@
             document.getElementById('query-pager').innerHTML = '';
             const clearBtn = document.getElementById('btn-clear-forms');
             if(clearBtn) clearBtn.style.display = 'none';
-            if(Array.isArray(list) && list.indexOf('sensor_data') !== -1){
-                const li = document.querySelector('#tables-list .script-item[data-name="sensor_data"]');
-                if(li) selectTable('sensor_data', li);
+            if(Array.isArray(list)){
+                if(list.indexOf('sensor_data') !== -1){
+                    const li = document.querySelector('#tables-list .script-item[data-name="sensor_data"]');
+                    if(li) selectTable('sensor_data', li);
+                } else if(list.indexOf('temperature_data') !== -1){
+                    const li = document.querySelector('#tables-list .script-item[data-name="temperature_data"]');
+                    if(li) selectTable('temperature_data', li);
+                } else if(list.length){
+                    const li = document.querySelector('#tables-list .script-item');
+                    if(li) selectTable(li.getAttribute('data-name'), li);
+                }
             }
         });
     };

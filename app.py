@@ -182,22 +182,6 @@ def init_database():
     cursor = None
     try:
         cursor = conn.cursor()
-        # 创建 sensor_data 表（与初始化脚本一致），增加 light 列（可空）
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sensor_data (
-            id BIGSERIAL PRIMARY KEY,
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            temperature REAL NOT NULL,
-            image_path TEXT NOT NULL,
-            light INT,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        """)
-        # 兼容已有表，补充缺失的 light 列
-        cursor.execute("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='sensor_data' AND column_name='light'")
-        if cursor.fetchone() is None:
-            cursor.execute("ALTER TABLE sensor_data ADD COLUMN light INT")
-        conn.commit()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS model_outputs (
             id BIGSERIAL PRIMARY KEY,
@@ -255,7 +239,7 @@ def init_database():
         );
         """)
         conn.commit()
-        print("[DB] 表 sensor_data 已确保存在")
+        print("[DB] 初始化完成")
         return True
     except Exception as e:
         print(f"[DB] 初始化失败: {e}")
@@ -650,7 +634,7 @@ def api_db_table():
             if form == 'light':
                 cur.execute("SELECT timestamp, light FROM sensor_data WHERE light IS NOT NULL AND timestamp > NOW() - INTERVAL %s ORDER BY timestamp ASC", (f"{hours} hours",))
             elif form == 'image':
-                cur.execute("SELECT timestamp, image_path FROM sensor_data WHERE image_path IS NOT NULL AND timestamp > NOW() - INTERVAL %s ORDER BY timestamp DESC", (f"{hours} hours",))
+                cur.execute("SELECT timestamp, image_path FROM sensor_data WHERE image_path IS NOT NULL AND TRIM(image_path) != '' AND image_path <> 'None' AND timestamp > NOW() - INTERVAL %s ORDER BY timestamp DESC", (f"{hours} hours",))
             else:
                 cur.execute("SELECT timestamp, temperature FROM sensor_data WHERE timestamp > NOW() - INTERVAL %s AND (bubble_count IS NULL OR bubble_count = 0) AND temperature > -40 AND temperature < 125 ORDER BY timestamp ASC", (f"{hours} hours",))
         elif name == 'temperature_data':
