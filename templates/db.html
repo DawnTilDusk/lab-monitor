@@ -68,9 +68,20 @@
     </div>
 
     <script>
+    const TABLE_TITLES = {
+        'image_data': '图像数据',
+        'light_data': '光敏数据',
+        'model_outputs': '模型输出',
+        'system_status': '系统状态',
+        'temperature_data': '温度数据'
+    };
     function renderTables(list){
         const ul = document.getElementById('tables-list');
-        ul.innerHTML = (list || []).map(name => `<li class="script-item" data-name="${name}"><span>${name}</span></li>`).join('');
+        ul.innerHTML = (list || []).map(name => {
+            const key = String(name||'').toLowerCase();
+            const title = TABLE_TITLES[key] || name;
+            return `<li class="script-item" data-name="${name}"><span>${title}</span></li>`;
+        }).join('');
         Array.from(ul.querySelectorAll('.script-item')).forEach(li => {
             li.onclick = () => selectTable(li.getAttribute('data-name'), li);
         });
