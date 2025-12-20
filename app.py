@@ -629,6 +629,75 @@ def api_db_clear():
         if conn:
             close_db_connection(conn)
 
+@app.route('/api/db/table')
+def api_db_table():
+    name = str(request.args.get('name', '')).strip().lower()
+    hours = request.args.get('hours', 24, type=int)
+    form = str(request.args.get('form', '')).strip().lower()
+    allowed = {
+        'sensor_data','temperature_data','image_data','light_data','model_outputs',
+        'system_status','sensor_data_compatible','temperature_statistics','light_statistics',
+        'latest_sensor_data','scripts','script_exec_log','script_commands','board_tags','board_tag_current'
+    }
+    if name not in allowed:
+        return jsonify({"error": "unknown table"}), 400
+    conn = get_db_connection()
+    cur = None
+    try:
+        cur = conn.cursor()
+        args = []
+        if name == 'sensor_data':
+            if form == 'light':
+                cur.execute("SELECT timestamp, light FROM sensor_data WHERE light IS NOT NULL AND timestamp > NOW() - INTERVAL %s ORDER BY timestamp ASC", (f"{hours} hours",))
+            elif form == 'image':
+                cur.execute("SELECT timestamp, image_path FROM sensor_data WHERE image_path IS NOT NULL AND timestamp > NOW() - INTERVAL %s ORDER BY timestamp DESC", (f"{hours} hours",))
+            else:
+                cur.execute("SELECT timestamp, temperature FROM sensor_data WHERE timestamp > NOW() - INTERVAL %s AND (bubble_count IS NULL OR bubble_count = 0) AND temperature > -40 AND temperature < 125 ORDER BY timestamp ASC", (f"{hours} hours",))
+        elif name == 'temperature_data':
+            cur.execute("SELECT timestamp, value FROM temperature_data WHERE timestamp > NOW() - INTERVAL %s ORDER BY timestamp DESC", (f"{hours} hours",))
+        elif name == 'image_data':
+            cur.execute("SELECT timestamp, image_path, bubble FROM image_data WHERE timestamp > NOW() - INTERVAL %s ORDER BY timestamp DESC", (f"{hours} hours",))
+        elif name == 'light_data':
+            cur.execute("SELECT timestamp, value FROM light_data WHERE timestamp > NOW() - INTERVAL %s ORDER BY timestamp DESC", (f"{hours} hours",))
+        elif name == 'model_outputs':
+            cur.execute("SELECT created_at, name, output FROM model_outputs WHERE created_at > NOW() - INTERVAL %s ORDER BY created_at DESC", (f"{hours} hours",))
+        elif name == 'system_status':
+            cur.execute("SELECT component, status, last_check FROM system_status ORDER BY last_check DESC")
+        elif name == 'sensor_data_compatible':
+            cur.execute("SELECT timestamp, temperature, image_path, light, bubble_count FROM sensor_data_compatible ORDER BY timestamp DESC")
+        elif name == 'temperature_statistics':
+            cur.execute("SELECT * FROM temperature_statistics ORDER BY date DESC")
+        elif name == 'light_statistics':
+            cur.execute("SELECT * FROM light_statistics ORDER BY date DESC")
+        elif name == 'latest_sensor_data':
+            cur.execute("SELECT * FROM latest_sensor_data")
+        elif name == 'scripts':
+            cur.execute("SELECT id, name, lang, author, org, license, created_at FROM scripts ORDER BY created_at DESC")
+        elif name == 'script_exec_log':
+            cur.execute("SELECT id, script_id, status, started_at, finished_at FROM script_exec_log ORDER BY id DESC")
+        elif name == 'script_commands':
+            cur.execute("SELECT id, script_id, cmd, status, issued_at, processed_at FROM script_commands ORDER BY id DESC")
+        elif name == 'board_tags':
+            cur.execute("SELECT name FROM board_tags ORDER BY name ASC")
+        elif name == 'board_tag_current':
+            cur.execute("SELECT name FROM board_tag_current LIMIT 1")
+        rows = cur.fetchmany(1000)
+        cols = [d[0] for d in cur.description] if cur.description else []
+        def _conv(v):
+            if isinstance(v, datetime):
+                return v.strftime('%Y-%m-%d %H:%M:%S')
+            return v
+        rows_fmt = [ [ _conv(v) for v in r ] for r in rows ]
+        return jsonify({"columns": cols, "rows": rows_fmt})
+    except Exception as e:
+        print(f"[DB] table query failed: {e}")
+        return jsonify({"error": "query failed"}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            close_db_connection(conn)
+
 @app.route('/api/latest')
 def api_latest():
     latest = LATEST_CACHE or get_latest_data()

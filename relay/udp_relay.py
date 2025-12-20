@@ -203,7 +203,9 @@ def save_image(frame):
             arr[y, x, 1] = g
             arr[y, x, 2] = b
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    fp = os.path.join(IMAGES_DIR, f"relay_{ts}.png")
+    ms = int(time.time() * 1000) % 1000
+    fp = os.path.join(IMAGES_DIR, f"relay_{ts}_{ms:03d}.png")
+    fp = os.path.join(IMAGES_DIR, f"relay_{ts}_{ms:03d}.png")
     arr_bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
     scale = 10
     dst = cv2.resize(arr_bgr, (w * scale, h * scale), interpolation=cv2.INTER_NEAREST)
@@ -239,7 +241,8 @@ def capture_uvc_image():
             return None
         
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        fp = os.path.join(IMAGES_DIR, f"relay_cam_{ts}.jpg")
+        ms = int(time.time() * 1000) % 1000
+        fp = os.path.join(IMAGES_DIR, f"relay_cam_{ts}_{ms:03d}.jpg")
         cv2.imwrite(fp, frame)
         return f"/static/images/{os.path.basename(fp)}"
     except Exception:
@@ -498,19 +501,11 @@ def main():
                     name = os.path.basename(str(image_path))
                     fp = os.path.join(IMAGES_DIR, name)
                     if not os.path.exists(fp):
-                        if isinstance(frame, dict):
-                            image_path = save_image(frame)
-                        else:
-                            tmp = capture_uvc_image()
-                            image_path = tmp if tmp else save_image({})
+                        image_path = None
                 except Exception:
-                    pass
+                    image_path = None
             else:
-                if isinstance(frame, dict):
-                    image_path = save_image(frame)
-                else:
-                    tmp = capture_uvc_image()
-                    image_path = tmp if tmp else save_image({})
+                image_path = None
             
             if conn is None:
                 try:

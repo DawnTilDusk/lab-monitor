@@ -28,27 +28,6 @@ GRANT ALL ON DATABASE lab_monitor TO labuser;
 -- 创建基础表结构（如果不存在）
 -- ==========================================
 
--- 原始合并表（保留用于向后兼容）
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sensor_data') THEN
-        CREATE TABLE sensor_data (
-            id SERIAL PRIMARY KEY,
-            timestamp TIMESTAMPTZ DEFAULT NOW(),
-            temperature REAL,
-            image_path TEXT,
-            light INT,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            bubble_count INT DEFAULT 0
-        );
-        
-        -- 为兼容性保留的索引
-        CREATE INDEX idx_sensor_timestamp ON sensor_data(timestamp DESC);
-        CREATE INDEX idx_sensor_temperature ON sensor_data(temperature);
-        CREATE INDEX idx_sensor_created_at ON sensor_data(created_at DESC);
-    END IF;
-END $$;
-
 -- A. 温度数据表
 DO $$
 BEGIN
@@ -183,16 +162,6 @@ BEGIN
         CREATE INDEX idx_system_last_check ON system_status(last_check DESC);
     END IF;
     
-    -- 原始表索引（如果不存在）
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_sensor_timestamp') THEN
-        CREATE INDEX idx_sensor_timestamp ON sensor_data(timestamp DESC);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_sensor_temperature') THEN
-        CREATE INDEX idx_sensor_temperature ON sensor_data(temperature);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_sensor_created_at') THEN
-        CREATE INDEX idx_sensor_created_at ON sensor_data(created_at DESC);
-    END IF;
 END $$;
 
 -- ==========================================
@@ -264,32 +233,29 @@ END $$;
 
 DO $$
 BEGIN
-    -- 检查原表是否有数据且新表为空
-    IF EXISTS (SELECT 1 FROM sensor_data LIMIT 1) 
-       AND (SELECT COUNT(*) FROM temperature_data) = 0 
-       AND (SELECT COUNT(*) FROM image_data) = 0 
-       AND (SELECT COUNT(*) FROM light_data) = 0 THEN
-        
-        -- 迁移温度数据
-        INSERT INTO temperature_data (timestamp, value, device_id, created_at)
-        SELECT timestamp, temperature, 'temp_main', created_at
-        FROM sensor_data
-        WHERE temperature IS NOT NULL;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sensor_data') THEN
+        IF (SELECT COUNT(*) FROM sensor_data) > 0
+           AND (SELECT COUNT(*) FROM temperature_data) = 0 
+           AND (SELECT COUNT(*) FROM image_data) = 0 
+           AND (SELECT COUNT(*) FROM light_data) = 0 THEN
+            INSERT INTO temperature_data (timestamp, value, device_id, created_at)
+            SELECT timestamp, temperature, 'temp_main', created_at
+            FROM sensor_data
+            WHERE temperature IS NOT NULL;
 
-        -- 迁移图像数据
-        INSERT INTO image_data (timestamp, image_path, device_id, bubble, created_at)
-        SELECT timestamp, image_path, 'camera_main', 
-               CASE WHEN bubble_count = 1 THEN TRUE ELSE FALSE END, created_at
-        FROM sensor_data
-        WHERE image_path IS NOT NULL AND TRIM(image_path) != '';
+            INSERT INTO image_data (timestamp, image_path, device_id, bubble, created_at)
+            SELECT timestamp, image_path, 'camera_main', 
+                   CASE WHEN bubble_count = 1 THEN TRUE ELSE FALSE END, created_at
+            FROM sensor_data
+            WHERE image_path IS NOT NULL AND TRIM(image_path) != '';
 
-        -- 迁移光敏数据
-        INSERT INTO light_data (timestamp, value, device_id, created_at)
-        SELECT timestamp, light, 'light_main', created_at
-        FROM sensor_data
-        WHERE light IS NOT NULL;
-        
-        RAISE NOTICE '已从原始表迁移数据到新表';
+            INSERT INTO light_data (timestamp, value, device_id, created_at)
+            SELECT timestamp, light, 'light_main', created_at
+            FROM sensor_data
+            WHERE light IS NOT NULL;
+
+            RAISE NOTICE '已从原始表迁移数据到新表';
+        END IF;
     END IF;
 END $$;
 
