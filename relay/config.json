@@ -1,0 +1,25 @@
+{
+  "valid_keys": {
+    "sensor": [
+      "type",
+      "temperature_c",
+      "light",
+      "frame",
+      "image_path",
+      "timestamp_ms"
+    ],
+    "model": [
+      "type",
+      "name",
+      "output",
+      "result"
+    ]
+  },
+  "sensor_fields": {
+    "temperature": "temperature_c",
+    "light": "light",
+    "frame": "frame",
+    "image_path": "image_path",
+    "timestamp": "timestamp_ms"
+  }
+}

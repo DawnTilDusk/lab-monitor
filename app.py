@@ -79,9 +79,24 @@ HEARTBEAT = { 'temp': 0, 'light': 0, 'image': 0 }
 HB_TIMEOUT = 60
 os.makedirs(IMAGES_DIR, exist_ok=True)
 SUBSCRIBERS = set()
+APP_LOG_ENABLED = 1
+APP_START_STR = datetime.now().strftime("%Y%m%d_%H%M%S")
+APP_LOG_NAME = 'app'
+APP_LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
+APP_LOG_PATH = os.path.join(APP_LOG_DIR, f'{APP_START_STR}_{APP_LOG_NAME}.log')
+os.makedirs(APP_LOG_DIR, exist_ok=True)
+
+def log_message(msg):
+    if APP_LOG_ENABLED == 1:
+        try:
+            with open(APP_LOG_PATH, 'a', encoding='utf-8') as f:
+                f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + str(msg) + "\n")
+        except Exception:
+            pass
 
 def broadcast(data):
-    msg = json.dumps(data)
+    msg = json.dumps(data, ensure_ascii=False)
+    # log_message('[SSE] ' + msg)
     for q in list(SUBSCRIBERS):
         try:
             q.put(msg, block=False)
@@ -567,7 +582,17 @@ def api_db_query():
         cur.execute(sql)
         rows = cur.fetchmany(1000)
         cols = [d[0] for d in cur.description] if cur.description else []
-        return jsonify({"columns": cols, "rows": rows})
+        try:
+            sample = rows[0] if rows else None
+            log_message(f"[db.query] cols={cols} sample={sample}")
+        except Exception:
+            pass
+        def _conv(v):
+            if isinstance(v, datetime):
+                return v.strftime('%Y-%m-%d %H:%M:%S')
+            return v
+        rows_fmt = [ [ _conv(v) for v in r ] for r in rows ]
+        return jsonify({"columns": cols, "rows": rows_fmt})
     except Exception as e:
         print(f"[DB] 查询失败: {e}")
         return jsonify({"error": "query failed"}), 500
@@ -623,12 +648,19 @@ def api_latest():
 
     if latest:
         latest["sensor_status"] = status
+        try:
+            log_message(f"[latest] ts={latest.get('timestamp')} src=db")
+        except Exception:
+            pass
         return jsonify(latest)
     else:
-        return jsonify({
-            "sensor_status": status,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        payload = {"sensor_status": status, "timestamp": ts}
+        try:
+            log_message(f"[latest] ts={ts} src=server")
+        except Exception:
+            pass
+        return jsonify(payload)
 
 
 @app.route('/api/history')
@@ -657,6 +689,10 @@ def api_events():
 def api_relay_notify():
     global LATEST_CACHE
     data = request.get_json(silent=True) or {}
+    try:
+        log_message(f"[relay] ts={data.get('timestamp')} ts_ms={data.get('timestamp_ms')}")
+    except Exception:
+        pass
     t = data.get('temperature')
     l = data.get('light')
     p = data.get('image_path')

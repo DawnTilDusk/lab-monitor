@@ -506,59 +506,25 @@ if [ -f "$REL_DIR/udp_relay.py" ]; then
   echo "[RELAY] UDP中转已启动 PID $(cat "$LOG_DIR/udp_relay.pid" 2>/dev/null || echo unknown)" >> "$LOG_DIR/udp_relay.log"
 fi
 
-SC_DIR="$LAB_DIR/sensor_collectors"
+SIM_DIR="$LAB_DIR/simulators"
 sleep 1
-CAMERA_DEVICE="${CAMERA_DEVICE:-/dev/video1}"
+if [ -d "$SIM_DIR" ]; then
+  pkill -f "$SIM_DIR/sim_temp.py" 2>/dev/null || true
+  LAB_DIR="$LAB_DIR" RELAY_HOST="${RELAY_HOST:-127.0.0.1}" RELAY_PORT="${RELAY_PORT:-9999}" nohup python3 -u "$SIM_DIR/sim_temp.py" >> "$LOG_DIR/sim_temp.log" 2>&1 &
+  echo $! > "$LOG_DIR/sim_temp.pid" || true
+  echo "[SIM] 温度仿真已启动 PID $(cat "$LOG_DIR/sim_temp.pid" 2>/dev/null || echo unknown)" >> "$LOG_DIR/sim_temp.log"
 
-if [ ! -e "$CAMERA_DEVICE" ]; then
-  if [ -e "/dev/video0" ]; then
-    CAMERA_DEVICE="/dev/video0"
-  fi
-fi
+  pkill -f "$SIM_DIR/sim_light.py" 2>/dev/null || true
+  LAB_DIR="$LAB_DIR" RELAY_HOST="${RELAY_HOST:-127.0.0.1}" RELAY_PORT="${RELAY_PORT:-9999}" nohup python3 -u "$SIM_DIR/sim_light.py" >> "$LOG_DIR/sim_light.log" 2>&1 &
+  echo $! > "$LOG_DIR/sim_light.pid" || true
+  echo "[SIM] 光敏仿真已启动 PID $(cat "$LOG_DIR/sim_light.pid" 2>/dev/null || echo unknown)" >> "$LOG_DIR/sim_light.log"
 
-LIGHT_GPIO="${LIGHT_GPIO:-80}"
-LIGHT_GPIO_ACTIVE_HIGH="${LIGHT_GPIO_ACTIVE_HIGH:-1}"
-if [ -d "$SC_DIR" ]; then
-  if [ -x "/opt/bisheng/bin/gcc" ]; then
-    make -C "$SC_DIR" CC="/opt/bisheng/bin/gcc" CFLAGS="${CFLAGS:- -O3 -mcpu=native -ffp-contract=fast}" >> "$LOG_DIR/sensor_collectors_build.log" 2>&1 || true
-  else
-    make -C "$SC_DIR" >> "$LOG_DIR/sensor_collectors_build.log" 2>&1 || true
-  fi
-  if [ -x "$SC_DIR/sensor_temp_collector" ]; then
-    pkill -f "$SC_DIR/sensor_temp_collector" 2>/dev/null || true
-    LAB_DIR="$LAB_DIR" RELAY_HOST="${RELAY_HOST:-127.0.0.1}" RELAY_PORT="${RELAY_PORT:-9999}" nohup "$SC_DIR/sensor_temp_collector" >> "$LOG_DIR/sensor_temp.log" 2>&1 &
-    echo $! > "$LOG_DIR/sensor_temp.pid" || true
-    echo "[SENSOR] 温度采集已启动 PID $(cat "$LOG_DIR/sensor_temp.pid" 2>/dev/null || echo unknown)" >> "$LOG_DIR/sensor_temp.log"
-  fi
-  if [ -x "$SC_DIR/sensor_light_collector" ]; then
-    pkill -f "$SC_DIR/sensor_light_collector" 2>/dev/null || true
-    if [ -n "${LIGHT_GPIO_GROUP:-}" ] && [ -n "${LIGHT_GPIO_PIN:-}" ]; then
-      GOP="gpio_operate"
-      if [ -x "/usr/bin/gpio_operate" ]; then GOP="/usr/bin/gpio_operate"; elif [ -x "/usr/sbin/gpio_operate" ]; then GOP="/usr/sbin/gpio_operate"; elif [ -x "/bin/gpio_operate" ]; then GOP="/bin/gpio_operate"; fi
-      if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
-        sudo -n "$GOP" set_direction "$LIGHT_GPIO_GROUP" "$LIGHT_GPIO_PIN" 0 >> "$LOG_DIR/sensor_light.log" 2>&1 || echo "[WARN] gpio_operate set_direction 失败" >> "$LOG_DIR/sensor_light.log"
-      else
-        "$GOP" set_direction "$LIGHT_GPIO_GROUP" "$LIGHT_GPIO_PIN" 0 >> "$LOG_DIR/sensor_light.log" 2>&1 || true
-      fi
-    fi
-    if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
-      LAB_DIR="$LAB_DIR" RELAY_HOST="${RELAY_HOST:-127.0.0.1}" RELAY_PORT="${RELAY_PORT:-9999}" LIGHT_GPIO="${LIGHT_GPIO:-}" LIGHT_GPIO_ACTIVE_HIGH="${LIGHT_GPIO_ACTIVE_HIGH:-1}" LIGHT_SYSFS="${LIGHT_SYSFS:-}" LIGHT_ADC_CHANNEL="${LIGHT_ADC_CHANNEL:-}" LIGHT_GPIO_GROUP="${LIGHT_GPIO_GROUP:-}" LIGHT_GPIO_PIN="${LIGHT_GPIO_PIN:-}" nohup sudo -E "$SC_DIR/sensor_light_collector" >> "$LOG_DIR/sensor_light.log" 2>&1 &
-    else
-      LAB_DIR="$LAB_DIR" RELAY_HOST="${RELAY_HOST:-127.0.0.1}" RELAY_PORT="${RELAY_PORT:-9999}" LIGHT_GPIO="${LIGHT_GPIO:-}" LIGHT_GPIO_ACTIVE_HIGH="${LIGHT_GPIO_ACTIVE_HIGH:-1}" LIGHT_SYSFS="${LIGHT_SYSFS:-}" LIGHT_ADC_CHANNEL="${LIGHT_ADC_CHANNEL:-}" LIGHT_GPIO_GROUP="${LIGHT_GPIO_GROUP:-}" LIGHT_GPIO_PIN="${LIGHT_GPIO_PIN:-}" nohup "$SC_DIR/sensor_light_collector" >> "$LOG_DIR/sensor_light.log" 2>&1 &
-      echo "[WARN] 光敏采集未以 root 运行，gpio_operate 可能不可用" >> "$LOG_DIR/sensor_light.log"
-    fi
-    echo $! > "$LOG_DIR/sensor_light.pid" || true
-    echo "[SENSOR] 光敏采集已启动 PID $(cat "$LOG_DIR/sensor_light.pid" 2>/dev/null || echo unknown)" >> "$LOG_DIR/sensor_light.log"
-  fi
-  if [ -x "$SC_DIR/sensor_image_collector" ]; then
-    pkill -f "$SC_DIR/sensor_image_collector" 2>/dev/null || true
-    echo "[SENSOR] 摄像头设备 ${CAMERA_DEVICE}" >> "$LOG_DIR/sensor_image.log"
-    LAB_DIR="$LAB_DIR" RELAY_HOST="${RELAY_HOST:-127.0.0.1}" RELAY_PORT="${RELAY_PORT:-9999}" CAMERA_DEVICE="$CAMERA_DEVICE" nohup "$SC_DIR/sensor_image_collector" >> "$LOG_DIR/sensor_image.log" 2>&1 &
-    echo $! > "$LOG_DIR/sensor_image.pid" || true
-    echo "[SENSOR] 图像采集已启动 PID $(cat "$LOG_DIR/sensor_image.pid" 2>/dev/null || echo unknown)" >> "$LOG_DIR/sensor_image.log"
-  fi
+  pkill -f "$SIM_DIR/sim_image.py" 2>/dev/null || true
+  LAB_DIR="$LAB_DIR" RELAY_HOST="${RELAY_HOST:-127.0.0.1}" RELAY_PORT="${RELAY_PORT:-9999}" nohup python3 -u "$SIM_DIR/sim_image.py" >> "$LOG_DIR/sim_image.log" 2>&1 &
+  echo $! > "$LOG_DIR/sim_image.pid" || true
+  echo "[SIM] 图像仿真已启动 PID $(cat "$LOG_DIR/sim_image.pid" 2>/dev/null || echo unknown)" >> "$LOG_DIR/sim_image.log"
 else
-  echo "[SENSOR] 目录不存在：$SC_DIR" >> "$LOG_DIR/flask_app.log"
+  echo "[SIM] 目录不存在：$SIM_DIR" >> "$LOG_DIR/flask_app.log"
 fi
 
 if command -v ss >/dev/null 2>&1; then

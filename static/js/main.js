@@ -69,7 +69,16 @@ function initCharts() {
     temperatureChart = echarts.init(el);
     const option = {
         backgroundColor: '#FAFAFA',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis', 
+            formatter: function (params) {
+                const p = Array.isArray(params) ? params[0] : params;
+                const d = p && p.data ? p.data : null;
+                const tsText = d && d.tsText ? d.tsText : '';
+                const val = d && d.value ? d.value[1] : (Array.isArray(d) ? d[1] : '');
+                return tsText ? (tsText + '  温度: ' + (typeof val === 'number' ? val.toFixed(1) : val)) : ('温度: ' + (typeof val === 'number' ? val.toFixed(1) : val));
+            }
+        },
         grid: { left: 48, right: 24, top: 24, bottom: 32 },
         xAxis: {
             type: 'time',
@@ -265,7 +274,7 @@ function updateCharts(data) {
     const raw = (data && data.temperature_data) ? data.temperature_data : [];
     temperatureSeries = raw
         .filter(it => typeof it.value === 'number' && it.value > -40 && it.value < 125)
-        .map(it => [new Date(it.timestamp), it.value]);
+        .map(it => ({ value: [new Date(String(it.timestamp).replace(/-/g,'/')), it.value], tsText: String(it.timestamp) }));
     temperatureAnomalies = [];
     for (let i = 1; i < raw.length; i++) {
         const prev = raw[i - 1];
@@ -703,8 +712,8 @@ function connectEvents() {
             const data = JSON.parse(e.data || '{}');
             if (data && Object.keys(data).length) {
                 updateLatestDisplay(data);
-                if (Object.prototype.hasOwnProperty.call(data, 'temperature') && data.timestamp) {
-                    appendTemperaturePoint(data.timestamp, data.temperature);
+                if (Object.prototype.hasOwnProperty.call(data, 'temperature') && (data.timestamp_ms || data.timestamp)) {
+                    appendTemperaturePoint(data.timestamp_ms || data.timestamp, data.temperature, data.timestamp);
                 }
                 if (Object.prototype.hasOwnProperty.call(data, 'models') && Array.isArray(data.models)) {
                     if (typeof window.renderModels === 'function') {
@@ -718,21 +727,29 @@ function connectEvents() {
     } catch (err) {}
 }
 
-function appendTemperaturePoint(tsText, t) {
+function appendTemperaturePoint(tsInput, t, tsText) {
     try {
         if (typeof t !== 'number' || t <= -40 || t >= 125) return;
-        const ts = new Date(tsText);
-        temperatureSeries.push([ts, t]);
+        let ts;
+        if (typeof tsInput === 'number' && tsInput > 0) {
+            ts = new Date(tsInput);
+        } else {
+            ts = new Date(String(tsInput).replace(/-/g,'/'));
+        }
+        const tsStr = (typeof tsText === 'string' && tsText) ? tsText : String(tsInput);
+        temperatureSeries.push({ value: [ts, t], tsText: tsStr });
         const cutoff = Date.now() - 24 * 3600 * 1000;
-        temperatureSeries = temperatureSeries.filter(p => (new Date(p[0]).getTime()) >= cutoff);
+        temperatureSeries = temperatureSeries.filter(p => (new Date((p.value ? p.value[0] : p[0])).getTime()) >= cutoff);
         const n = temperatureSeries.length;
         if (n >= 2) {
             const prev = temperatureSeries[n - 2];
             const cur = temperatureSeries[n - 1];
-            const dt = new Date(cur[0]).getTime() - new Date(prev[0]).getTime();
-            const dv = cur[1] - prev[1];
+            const prevV = prev.value ? prev.value : prev;
+            const curV = cur.value ? cur.value : cur;
+            const dt = new Date(curV[0]).getTime() - new Date(prevV[0]).getTime();
+            const dv = curV[1] - prevV[1];
             if (Math.abs(dv) >= 5 && dt <= 10 * 60 * 1000) {
-                temperatureAnomalies.push({ value: [cur[0], cur[1]], delta: dv });
+                temperatureAnomalies.push({ value: [curV[0], curV[1]], delta: dv });
             }
         }
         if (temperatureChart) {
