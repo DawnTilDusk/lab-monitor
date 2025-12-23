@@ -231,34 +231,33 @@ END $$;
 -- 数据迁移：从原表到新表（如果需要）
 -- ==========================================
 
--- 临时禁用数据迁移以防止启动卡死
--- DO $$
--- BEGIN
---     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sensor_data') THEN
---         IF (SELECT COUNT(*) FROM sensor_data) > 0
---            AND (SELECT COUNT(*) FROM temperature_data) = 0 
---            AND (SELECT COUNT(*) FROM image_data) = 0 
---            AND (SELECT COUNT(*) FROM light_data) = 0 THEN
---             INSERT INTO temperature_data (timestamp, value, device_id, created_at)
---             SELECT timestamp, temperature, 'temp_main', created_at
---             FROM sensor_data
---             WHERE temperature IS NOT NULL;
---
---             INSERT INTO image_data (timestamp, image_path, device_id, bubble, created_at)
---             SELECT timestamp, image_path, 'camera_main', 
---             CASE WHEN bubble_count = 1 THEN TRUE ELSE FALSE END, created_at
---             FROM sensor_data
---             WHERE image_path IS NOT NULL AND TRIM(image_path) != '';
---
---             INSERT INTO light_data (timestamp, value, device_id, created_at)
---             SELECT timestamp, light, 'light_main', created_at
---             FROM sensor_data
---             WHERE light IS NOT NULL;
---
---             RAISE NOTICE '已从原始表迁移数据到新表';
---         END IF;
---     END IF;
--- END $$;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sensor_data') THEN
+        IF (SELECT COUNT(*) FROM sensor_data) > 0
+           AND (SELECT COUNT(*) FROM temperature_data) = 0 
+           AND (SELECT COUNT(*) FROM image_data) = 0 
+           AND (SELECT COUNT(*) FROM light_data) = 0 THEN
+            INSERT INTO temperature_data (timestamp, value, device_id, created_at)
+            SELECT timestamp, temperature, 'temp_main', created_at
+            FROM sensor_data
+            WHERE temperature IS NOT NULL;
+
+            INSERT INTO image_data (timestamp, image_path, device_id, bubble, created_at)
+            SELECT timestamp, image_path, 'camera_main', 
+            CASE WHEN bubble_count = 1 THEN TRUE ELSE FALSE END, created_at
+            FROM sensor_data
+            WHERE image_path IS NOT NULL AND TRIM(image_path) != '';
+
+            INSERT INTO light_data (timestamp, value, device_id, created_at)
+            SELECT timestamp, light, 'light_main', created_at
+            FROM sensor_data
+            WHERE light IS NOT NULL;
+
+            RAISE NOTICE '已从原始表迁移数据到新表';
+        END IF;
+    END IF;
+END $$;
 
 -- ==========================================
 -- 创建视图（如果不存在）
