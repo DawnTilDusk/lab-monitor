@@ -454,11 +454,10 @@ def get_history_data(hours=24):
     try:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT timestamp, temperature
-            FROM sensor_data
+            SELECT timestamp, value
+            FROM temperature_data
             WHERE timestamp > NOW() - INTERVAL '%s hours'
-              AND (bubble_count IS NULL OR bubble_count = 0)
-              AND temperature > -40 AND temperature < 125
+              AND value > -40 AND value < 125
             ORDER BY timestamp ASC
         """, (hours,))
         rows = cursor.fetchall()
