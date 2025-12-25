@@ -47,7 +47,7 @@ static int get_pixfmt(int fd) {
     return (int)fmt.fmt.pix.pixelformat;
 }
 
-struct buffer { void *start; size_t length; };
+struct buffer { void *start; size_t length; } __attribute__((aligned(128)));
 
 static int init_mmap(int fd, struct buffer *buf) {
     struct v4l2_requestbuffers req;

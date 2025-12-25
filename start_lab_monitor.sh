@@ -520,7 +520,7 @@ LIGHT_GPIO="${LIGHT_GPIO:-80}"
 LIGHT_GPIO_ACTIVE_HIGH="${LIGHT_GPIO_ACTIVE_HIGH:-1}"
 if [ -d "$SC_DIR" ]; then
   if [ -x "/opt/bisheng/bin/gcc" ]; then
-    make -C "$SC_DIR" CC="/opt/bisheng/bin/gcc" CFLAGS="${CFLAGS:- -O3 -mcpu=native -ffp-contract=fast}" >> "$LOG_DIR/sensor_collectors_build.log" 2>&1 || true
+    make -C "$SC_DIR" CC="/opt/bisheng/bin/gcc" CFLAGS="${CFLAGS:- -O3 -mcpu=native -ffp-contract=fast -flto}" >> "$LOG_DIR/sensor_collectors_build.log" 2>&1 || true
   else
     make -C "$SC_DIR" >> "$LOG_DIR/sensor_collectors_build.log" 2>&1 || true
   fi
