@@ -706,8 +706,10 @@ function generateFakeModels(n) {
     return arr;
 }
 function connectEvents() {
+    if (window.eventSource) return;
     try {
         const es = new EventSource('/api/events');
+        window.eventSource = es;
         es.onmessage = function(e) {
             const data = JSON.parse(e.data || '{}');
             if (data && Object.keys(data).length) {
@@ -723,9 +725,30 @@ function connectEvents() {
             }
         };
         es.onopen = function() { if (latestPollTimer) { clearInterval(latestPollTimer); latestPollTimer = null; } };
-        es.onerror = function() { if (!latestPollTimer) { latestPollTimer = setInterval(loadLatestData, 5000); } };
+        es.onerror = function() { 
+            if (window.eventSource) {
+                window.eventSource.close();
+                window.eventSource = null;
+            }
+            if (!latestPollTimer) { 
+                latestPollTimer = setInterval(loadLatestData, 5000); 
+            } 
+        };
     } catch (err) {}
 }
+
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        if (window.eventSource) {
+            window.eventSource.close();
+            window.eventSource = null;
+        }
+    } else {
+        if (!window.eventSource) {
+            connectEvents();
+        }
+    }
+});
 
 function appendTemperaturePoint(tsInput, t, tsText) {
     try {
