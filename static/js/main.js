@@ -222,8 +222,8 @@ function updateLatestDisplay(data) {
 // 更新传感器状态显示
 function updateSensorStatus(status) {
     const statusMap = {
-        'ds18b20': 'DS18B20传感器',
-        'light': '光敏电阻传感器',
+        'ds18b20': 'AHT10温湿度传感器',
+        'light': 'GY-30光照传感器（BH1750）',
         'camera': 'UVC摄像头',
         'db': '数据库连接'
     };

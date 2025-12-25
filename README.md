@@ -7,9 +7,10 @@
 ## 系统特性
 
 ### 🔧 硬件集成
-- **温度采集**：DS18B20数字温度传感器，GPIO2_15接口
-- **图像采集**：标准UVC USB摄像头，支持实时图像捕获
-- **数据存储**：openGauss 5.0.0数据库，本地化数据持久化
+- **温湿度采集**：AHT10（I2C-7，设备 `/dev/i2c-7`）
+- **光照采集**：GY-30（BH1750，I2C 地址 0x23，单位 Lux）
+- **图像采集**：标准 UVC USB 摄像头，支持实时图像捕获
+- **数据存储**：openGauss 5.0.0 数据库，本地化数据持久化
 
 ### 🌐 Web界面
 - **实时监控**：温度/光敏/图像，SSE事件推送低时延刷新
@@ -128,6 +129,11 @@ Pin27/Pin28 仅有 I²C 功能，不可作 GPIO 使用，且为 1.8V 电平，�
 ```bash
 # 操作系统：openEuler 22.03 LTS SP4（鲲鹏）
 # 必备组件：openGauss、毕昇、make、Python3.9
+# 建议安装：fswebcam（提升摄像图像清晰度）
+sudo dnf install -y fswebcam
+# 验证摄像头
+ls -la /dev/video1
+fswebcam /tmp/test.jpg
 ```
 
 ### 2. 一键启动
@@ -147,8 +153,9 @@ bash start_lab_monitor.sh
 
 ## 采集器与中转
 
-- 采集器：原生 C 进程分别采集温度、光敏与图像，按统一 JSON 通过 UDP 上报
-- 中转：接收 UDP，补全/保存图像、写入 `sensor_data`，并通知后端触发 SSE 更新
+- 采集器：原生 C 进程分别采集温度、光敏与图像，按统一 JSON 通过 UDP 上报；图像采集周期为 1s
+- 图像路径与回退：优先使用 fswebcam 生成 JPG 并上报 `image_path`；若 fswebcam 不可用则回退为 V4L2 发送 `frame{width,height,pixels}`，中转端将像素矩阵落盘为放大 PNG 便于展示（可能出现“马赛克”效果）
+- 中转：接收 UDP，补全/保存图像、写入分表（temperature_data、image_data、light_data），并通知后端触发 SSE 更新
 - 示例与探针：一键脚本内置示例任务与健康探针，便于联调与演示
 
 ## API接口
@@ -162,16 +169,33 @@ bash start_lab_monitor.sh
 - `POST /api/model_output`：模型输出直传入库
 - `GET /api/models`、`POST /api/models/command`、`POST /api/models/notify`、`GET /api/models/download/<name>`：模型管理
 - `GET /api/db/tables`、`POST /api/db/query`、`POST /api/db/clear`：数据库页表单化查询与清理
+- `GET /api/db/table?name=<table>&hours=<n>`：分表查询（支持 `image_data`、`temperature_data`、`light_data` 等）
+
+示例：
+```
+GET /api/db/table?name=image_data&hours=6
+GET /api/db/table?name=temperature_data&hours=24
+GET /api/db/table?name=light_data&hours=12
+```
 
 ## 硬件配置
 
-### DS18B20温度传感器
-- **接口**：GPIO2_15 (40-pin第15号引脚)
-- **上拉电阻**：4.7kΩ到3.3V
-- **数据读取**：`/sys/bus/w1/devices/28-*/w1_slave`
+### AHT10 温湿度传感器
+- **总线**：I2C-7（设备路径 `/dev/i2c-7`）
+- **供电与引脚**：通过面包板与同一 I2C 总线连接至引脚
+ 2（5V）、3（I2C7_SDA）、5（I2C7_SCL）、6（GND）
+- **地址**：默认 0x38
+- **采样**：温度/湿度；温度单位℃，湿度单位 %\n
+- **采集器**：`sensor_temp_collector`（C）
 
-### UVC摄像头
-- **设备路径**：`/dev/video0`
+### GY-30 光照传感器（BH1750）
+- **总线**：I2C-7（设备路径 `/dev/i2c-7`），与 AHT10 共总线
+- **地址**：默认 0x23
+- **单位**：Lux（高分辨率模式）
+- **采集器**：`sensor_light_collector`（C）
+
+### UVC 摄像头
+- **设备路径**：`/dev/video1`
 - **分辨率**：640x480（可配置）
 - **格式**：BGR/GRAY（按采集器配置）
 
@@ -179,6 +203,15 @@ bash start_lab_monitor.sh
 - **运行方式**：stdout 输出 JSON 行，管理器读取后通过 UDP 上报
 - **配置**：`models/config.json` 定义自启动与模型元信息
 - **入库**：写入 `model_outputs(name, output, created_at)`
+
+## 环境变量
+
+- 通用：`LAB_DIR`（默认 `/home/openEuler/lab_monitor`）、`FLASK_PORT`（默认 5000）
+- 数据库：`DB_HOST`、`DB_PORT`（默认 7654）、`DB_NAME`、`DB_USER`、`DB_PASSWORD`
+- 中转：`RELAY_HOST`（默认 127.0.0.1）、`RELAY_PORT`（默认 9999）
+- 摄像头：`CAMERA_DEVICE`（默认 `/dev/video0` 或脚本自动探测）
+- 图像生命周期：`IMAGE_TTL_SEC`（定时删除本地图片的秒数，默认 600）、`IDLE_IMAGE_SEC`（空闲保底抓拍间隔，start 脚本默认 10，relay 默认 15）
+- 后端通知：`BACKEND_NOTIFY_URL`、`BACKEND_MODEL_URL`
 
 ## 部署指南（推荐）
 
@@ -202,44 +235,65 @@ bash start_lab_monitor.sh
 - **表单化查询**：支持 `sensor_data` 的温度/光敏/图像表单与 `model_outputs` 的模型表单
 - **分页与清理**：结果分页展示；支持清空 `sensor_data`
 
+## 图像生命周期与清理
+
+- 本地图片将按 `IMAGE_TTL_SEC` 定时删除，以避免磁盘膨胀
+- 设计为“**文件删、记录留**”：删除仅作用于文件系统，数据库记录（如 `image_data.image_path` 或 `sensor_data.image_path`）仍保留，用于审计与检索
+- 如需同步清理数据库记录，可执行示例 SQL：
+```
+-- 清理 1 小时前的 image_data 记录
+DELETE FROM image_data WHERE timestamp < NOW() - INTERVAL '1 hour';
+-- 或者清空 sensor_data 的旧图片路径
+UPDATE sensor_data SET image_path = NULL WHERE timestamp < NOW() - INTERVAL '1 hour';
+```
+
 ## 故障排除
 
 ### 常见问题
 
-1. **DS18B20传感器离线**
+1. **AHT10 传感器离线**
    ```bash
-   # 检查设备
-   ls /sys/bus/w1/devices/28-*
-   
-   # 检查GPIO
-   gpio readall
+   # 检查 I2C 设备
+   ls -la /dev/i2c-7 
+   #可能需要手动给引脚权限
+   sudo chmod 666 /dev/i2c-7
+   # 运行采集器并查看日志
+   /home/openEuler/lab_monitor/sensor_collectors/sensor_temp_collector
    ```
 
-2. **摄像头无法访问**
+2. **GY-30 光照传感器异常**
    ```bash
-   # 检查设备
+   # 检查 I2C 设备与地址
+   ls -la /dev/i2c-7
+   # 可能需要手动给引脚权限
+   sudo chmod 666 /dev/i2c-7
+   # 运行采集器并查看日志
+   /home/openEuler/lab_monitor/sensor_collectors/sensor_light_collector
+   ```
+
+3. **摄像头无法访问**
+   ```bash
    ls -la /dev/video0
-   
-   # 测试摄像头
    fswebcam test.jpg
+   
    ```
 
 3. **数据库连接失败**
-   ```bash
-   # 检查服务状态
-   systemctl status gaussdb
+  ```bash
+  # 检查服务状态
+  systemctl status gaussdb
    
-   # 测试连接
-   gsql -h localhost -p 7654 -U labuser -d lab_monitor
-   ```
+  # 测试连接
+  gsql -h localhost -p 7654 -U labuser -d lab_monitor
+  ```
 
-4. **NPU模型加载失败**
-   ```bash
-   # 检查模型文件
-   ls -la /home/openEuler/lab_monitor/model/bubble_detector.om
-   
-   # 当前版本使用随机数模拟，实际部署需要真实模型
-   ```
+4. **切屏后网页卡顿/卡死（SSE堆积）**
+   - 前端已优化：页面隐藏时关闭 SSE、恢复时自动重连，失败回退到 5s 轮询
+   - 若仍异常：清空浏览器缓存并刷新；检查网络是否存在长时间阻断
+
+5. **图像“马赛克”现象**
+   - 原因：fswebcam 缺失，系统回退到发送低分辨率像素矩阵，展示时放大导致马赛克
+   - 解决：安装 fswebcam（见上文），或提高回退像素矩阵的尺寸（需要修改采集器）
 
 ### 错误处理
 

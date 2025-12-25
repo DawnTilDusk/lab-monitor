@@ -27,16 +27,16 @@
 
 ## 3. 数据流与处理
 - 采集通道：
-  - 采集器按固定周期输出 JSON（温度/光敏/像素矩阵/设备信息）→ UDP 中转。
-  - 中转补全图像（UVC/像素矩阵就地缩放），写入 `sensor_data`，并通知后端；后端通过 SSE 推送前端。
+  - 采集器按固定周期（图像约 1s）输出 JSON（温度/光敏/设备信息；图像为两种路径：`image_path` 或 `frame{width,height,pixels}`）→ UDP 中转。
+  - 中转补全图像：优先使用 fswebcam 生成 JPG 并上报 `image_path`；回退时将像素矩阵就地缩放并落盘为 PNG → 写入分表（`temperature_data`、`image_data`、`light_data` 或兼容的 `sensor_data`），并通知后端；后端通过 SSE 推送前端。
 - 模型通道：
   - 模型脚本周期 `print(JSON)` → 模型管理器读取 stdout → UDP 中转。
   - 中转写入 `model_outputs` 并通知后端，前端展示模型卡与数据库查询。
-- 图片生命周期：TTL 定时删除，防止磁盘膨胀；空闲时段自动抓取心跳帧保证展示连续性。
+- 图片生命周期：TTL 定时删除，防止磁盘膨胀（仅删除文件，不删除数据库记录，保留审计元数据）；空闲时段自动抓取心跳帧保证展示连续性（`IDLE_IMAGE_SEC` 控制）。
 
 ## 4. 模块职责
 - 前端：
-  - 仪表盘：温度趋势（ECharts）与状态心跳；SSE 实时刷新。
+  - 仪表盘：温度趋势（ECharts）与状态心跳；SSE 实时刷新，页面可见性优化（不可见时关闭 SSE，恢复时重连；失败回退 5s 轮询）。
   - 开源社区：模型/脚本卡片展示与下载；支持示例假数据渲染。
   - 数据库页：表单化查询（温度/光敏/图像/模型输出），分页与清理控制。
 - 后端：
@@ -44,7 +44,7 @@
   - 采集/中转通知：`/api/capture`、`/api/relay_notify`、`/api/ingest`。
   - 模型管理：`/api/models*`、`/api/model_output`。
   - 数据库页：`/api/db/tables`、`/api/db/query`、`/api/db/clear`。
-- UDP 中转：统一 JSON 接入、图像落盘与缩放、`sensor_data`/`model_outputs` 入库、后端通知。
+- UDP 中转：统一 JSON 接入、图像落盘与缩放、分表（`temperature_data`/`image_data`/`light_data`）与兼容表入库、后端通知。
 - 采集器：原生 C 进程采样温度/光敏/图像，按统一 JSON 通过 UDP 上报。
 - 模型管理：周期运行脚本，读取 stdout 的 JSON 行，以 UDP 上报并维护状态。
 
@@ -69,11 +69,12 @@
   - `POST /api/model_output`：模型输出直传入库（中转会调用）。
 - 数据库页：
   - `GET /api/db/tables`、`POST /api/db/query`、`POST /api/db/clear`。
+  - `GET /api/db/table?name=<table>&hours=<n>`：分表查询（支持 `image_data`、`temperature_data`、`light_data` 等）。
 
 ## 7. 配置与环境变量
 - 通用：`LAB_DIR`（默认 `/home/openEuler/lab_monitor`）、`FLASK_PORT`（默认 5000）。
 - 数据库：`DB_HOST`、`DB_PORT`（默认 7654）、`DB_NAME`、`DB_USER`、`DB_PASSWORD`。
-- 中转：`RELAY_HOST`（默认 127.0.0.1）、`RELAY_PORT`（默认 9999）、`IMAGE_TTL_SEC`、`IDLE_IMAGE_SEC`。
+- 中转：`RELAY_HOST`（默认 127.0.0.1）、`RELAY_PORT`（默认 9999）、`IMAGE_TTL_SEC`（默认 600）、`IDLE_IMAGE_SEC`（start 默认 10；relay 默认 15，可统一通过环境变量）。
 - 摄像头：`CAMERA_DEVICE`（默认 `/dev/video0` 或探测）。
 - 光敏：
   - `LIGHT_GPIO`（sysfs GPIO 号）、`LIGHT_GPIO_ACTIVE_HIGH`（1/0）。
@@ -85,12 +86,16 @@
 - 一键脚本统一启动 openGauss / Flask 后端 / UDP 中转 / 采集器 / 模型管理，并进行端口开孔与健康探针。
 - 光敏方向：如配置了 `LIGHT_GPIO_GROUP/LIGHT_GPIO_PIN`，启动前自动执行 `gpio_operate set_direction <group> <pin> 0`。
 - 日志与 PID：统一位于 `opengauss_logs/`（含 `*.log` 与 `*.pid`）。
+- 摄像头设备探测：默认使用 `CAMERA_DEVICE=/dev/video1`；若不存在则自动回退到 `/dev/video0`。
+- 中转启动：携带 `IMAGE_TTL_SEC` 与 `IDLE_IMAGE_SEC` 环境变量，启用心跳抓拍与 TTL 删除。
 
 ## 9. 编译与构建（编译器使用步骤）
 - 使用范围：仅 C 采集器需要编译（温度/光敏/图像）；Python 后端/中转/模型无需编译。
 - 触发方式：启动脚本会自动执行 `make -C sensor_collectors` 完成编译；也可手动执行。
-- 编译器选择：项目默认采用毕昇（BiSheng）工具链，可通过 `CC`/`CFLAGS` 指定优化选项。示例：
+- 编译器选择：项目默认采用毕昇（BiSheng）工具链（`/opt/bisheng/bin/gcc`），可通过 `CC`/`CFLAGS` 指定优化选项；若毕昇不可用则回退到系统 GCC。
+- 示例：
   - 毕昇：`make -C sensor_collectors CC=/opt/bisheng/bin/gcc CFLAGS='-O3 -march=armv8-a -mtune=tsv110 -ffast-math'`
+  - GCC：`make -C sensor_collectors CC=gcc CFLAGS='-O2 -Wall'`
 - Makefile 入口：`sensor_collectors/Makefile`（目标：`sensor_temp_collector`、`sensor_light_collector`、`sensor_image_collector`）。
 - 验证与日志：编译输出写入 `sensor_collectors_build.log`；采集器运行日志位于 `sensor_*.log`。
 - 注意事项：按板卡与系统库版本调整 `CFLAGS`；必要时启用 LTO/PGO（需确保工具链与链接器支持）。
@@ -131,6 +136,10 @@
 - 健康探针：脚本末尾打印 Web 与 DB 信息；`curl http://<IP>:5000/api/latest` 检查缓存与心跳。
 - 关键日志：`flask_app.log`、`udp_relay.log`、`sensor_*.log`、`model_manager.log`、`script_monitor.log`。
 - 常见问题：GPIO 未导出/未提权、免密 sudo 未生效、摄像设备路径不一致、数据库服务或认证异常。
+- 图像清理：TTL 删除仅作用于文件系统；如需同步清理数据库记录，建议执行：
+  - `DELETE FROM image_data WHERE timestamp < NOW() - INTERVAL '1 hour';`
+  - `UPDATE sensor_data SET image_path = NULL WHERE timestamp < NOW() - INTERVAL '1 hour';`
+- 前端卡顿：隐藏标签页时关闭 SSE，恢复时重连；错误回退到 5s 轮询，防止长时间堆积导致卡顿。
 
 ## 14. 术语与兼容性
 - openGauss：PostgreSQL 兼容数据库，支持 py-opengauss/psycopg2 连接；默认端口 7654。
@@ -169,6 +178,11 @@
   - 日志：`/home/openEuler/opengauss_logs/`
     - `flask_app.log`、`udp_relay.log`、`sensor_temp.log`、`sensor_light.log`、`sensor_image.log`、`model_manager.log`、`script_monitor.log`、`sensor_collectors_build.log`、`gs_ctl.log`
   - 数据：`/home/openEuler/opengauss_data/`
+
+### 当前硬件配置（AHT10 + GY-30）
+- AHT10 温湿度传感器：I2C-7（`/dev/i2c-7`）I2C 地址 0x38，采集温度/湿度
+- GY-30 光照传感器（BH1750）：I2C 地址 0x23，单位 Lux
+- 两者通过同一 I2C 总线外接至面包板，连接到引脚：1（3.3V）、3（I2C7_SDA）、5（I2C7_SCL）、6（GND）
 
 ---
 *本技术文档用于工程内部与外部交付说明，可与 README 结合使用。*
