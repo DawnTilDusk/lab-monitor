@@ -505,7 +505,10 @@ def main():
                 except Exception:
                     image_path = None
             else:
-                image_path = None
+                if frame:
+                    image_path = save_image(frame)
+                else:
+                    image_path = None
             
             if conn is None:
                 try:

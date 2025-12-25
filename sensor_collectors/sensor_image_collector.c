@@ -243,7 +243,7 @@ int main() {
                 sendto(sock, buf, used, 0, (struct sockaddr*)&addr, sizeof(addr));
             }
         }
-        usleep(10000000);
+        usleep(5000000);
     }
     if (rgb) free(rgb);
     if (small) free(small);
