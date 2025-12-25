@@ -21,7 +21,7 @@
 
 ### 🔧 技术栈
 - **后端**：Flask 2.x + Python 3.9
-- **数据库**：openGauss 5.0.0（PostgreSQL兼容）
+- **数据库**：openGauss 5.0.0
 - **前端**：HTML5/CSS3/JavaScript + ECharts
 - **图像处理**：OpenCV-Python 4.x
 - **采集与中转**：C采集器 + UDP中转
