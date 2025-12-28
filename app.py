@@ -33,7 +33,7 @@ import glob
 import zlib
 
 # ==================== 配置 ====================
-BASE_DIR = "/home/openEuler/lab_monitor"
+BASE_DIR = os.environ.get('LAB_DIR', "/home/openEuler/lab_monitor")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 IMAGES_DIR = os.path.join(STATIC_DIR, "images")
 MODELS_DIR = os.path.join(BASE_DIR, "models")
@@ -42,6 +42,8 @@ MODELS_STATUS_PATH = os.path.join(RUNTIME_DIR, "models_status.json")
 MODELS_CMD_PATH = os.path.join(RUNTIME_DIR, "models_commands.json")
 MODELS_CFG_PATH = os.path.join(MODELS_DIR, "config.json")
 MODELS_CACHE = []
+MODEL_CARD_DIR = os.path.join(BASE_DIR, "model-card")
+MODEL_CARD_CFG_PATH = os.path.join(MODEL_CARD_DIR, "config.json")
 try:
     os.makedirs(RUNTIME_DIR, exist_ok=True)
 except Exception:
@@ -1044,6 +1046,131 @@ def api_models():
         return jsonify(items)
     except Exception:
         return jsonify([])
+
+@app.route('/api/model-card', methods=['GET'])
+def api_model_card():
+    try:
+        if os.path.isfile(MODEL_CARD_CFG_PATH):
+            with open(MODEL_CARD_CFG_PATH, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+            return jsonify(cfg if isinstance(cfg, dict) else {'models': cfg if isinstance(cfg, list) else []})
+        return jsonify({'models': []})
+    except Exception:
+        return jsonify({'models': []})
+
+@app.route('/api/model-card/download', methods=['POST'])
+def api_model_card_download():
+    try:
+        data = request.get_json(silent=True) or {}
+        file = str(data.get('file') or '').strip()
+        name = str(data.get('name') or '').strip()
+        if not file or '/' in file or '..' in file or not file.endswith('.py'):
+            return jsonify({'error': 'bad file'}), 400
+        src = os.path.join(MODEL_CARD_DIR, file)
+        if not os.path.isfile(src):
+            return jsonify({'error': 'not found'}), 404
+        try:
+            os.makedirs(MODELS_DIR, exist_ok=True)
+        except Exception:
+            pass
+        dest_name = file
+        dest_path = os.path.join(MODELS_DIR, dest_name)
+        if os.path.exists(dest_path):
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            base, ext = os.path.splitext(dest_name)
+            dest_name = f"{base}_{ts}{ext}"
+            dest_path = os.path.join(MODELS_DIR, dest_name)
+        with open(src, 'rb') as fr, open(dest_path, 'wb') as fw:
+            fw.write(fr.read())
+        cfg_updated = False
+        if os.path.isfile(MODEL_CARD_CFG_PATH):
+            try:
+                with open(MODEL_CARD_CFG_PATH, 'r', encoding='utf-8') as f:
+                    cfg = json.load(f)
+                if isinstance(cfg, dict):
+                    arr = cfg.get('models') or []
+                    for m in arr:
+                        mf = str(m.get('file') or '')
+                        mn = str(m.get('name') or '')
+                        if (mf == file) or (name and mn == name):
+                            m['file'] = dest_name
+                            cfg_updated = True
+                            break
+                    meta = cfg.get('meta') or {}
+                    if file in meta and dest_name != file:
+                        meta[dest_name] = meta.get(file)
+                        try:
+                            del meta[file]
+                        except Exception:
+                            pass
+                        cfg['meta'] = meta
+                    if cfg_updated:
+                        tmp = MODEL_CARD_CFG_PATH + '.tmp'
+                        with open(tmp, 'w', encoding='utf-8') as f:
+                            json.dump(cfg, f, ensure_ascii=False)
+                        os.replace(tmp, MODEL_CARD_CFG_PATH)
+            except Exception:
+                pass
+        try:
+            title_src = None
+            desc_src = None
+            if os.path.isfile(MODEL_CARD_CFG_PATH):
+                with open(MODEL_CARD_CFG_PATH, 'r', encoding='utf-8') as f:
+                    ccfg = json.load(f)
+                if isinstance(ccfg, dict):
+                    cmeta = ccfg.get('meta') or {}
+                    mm = cmeta.get(file) or cmeta.get(dest_name) or {}
+                    title_src = mm.get('title')
+                    desc_src = mm.get('description')
+            if not title_src:
+                title_src = name or dest_name
+            if not desc_src:
+                desc_src = (data.get('description') or '')
+            mcfg = {}
+            if os.path.isfile(MODELS_CFG_PATH):
+                try:
+                    with open(MODELS_CFG_PATH, 'r', encoding='utf-8') as f:
+                        mcfg = json.load(f)
+                except Exception:
+                    mcfg = {}
+            if not isinstance(mcfg, dict):
+                mcfg = {}
+            if 'meta' not in mcfg or not isinstance(mcfg.get('meta'), dict):
+                mcfg['meta'] = {}
+            mcfg['meta'][dest_name] = { 'title': title_src, 'description': desc_src or f"简易模型 {dest_name.split('_')[1].split('.')[0]}" }
+            tmp2 = MODELS_CFG_PATH + '.tmp'
+            with open(tmp2, 'w', encoding='utf-8') as f:
+                json.dump(mcfg, f, ensure_ascii=False)
+            os.replace(tmp2, MODELS_CFG_PATH)
+        except Exception:
+            pass
+        try:
+            items = []
+            meta2 = {}
+            autostart_set2 = set()
+            try:
+                if os.path.isfile(MODELS_CFG_PATH):
+                    with open(MODELS_CFG_PATH, 'r', encoding='utf-8') as f:
+                        cfg2 = json.load(f)
+                    meta2 = cfg2.get('meta') or {}
+                    autostart_set2 = set(cfg2.get('autostart') or [])
+            except Exception:
+                meta2 = {}
+            if os.path.isdir(MODELS_DIR):
+                for fn in sorted(os.listdir(MODELS_DIR)):
+                    if fn.startswith('model_') and fn.endswith('.py') and fn != 'model_manager.py':
+                        m = meta2.get(fn) or {}
+                        items.append({ 'name': fn, 'title': (m.get('title') or fn), 'description': (m.get('description') or f"简易模型 {fn.split('_')[1].split('.')[0]}"), 'status': 'stopped', 'pid': None, 'autostart': (fn in autostart_set2) })
+            broadcast({ 'models': items })
+        except Exception:
+            pass
+        try:
+            title_out = title_src if isinstance(title_src, str) and title_src else dest_name
+        except Exception:
+            title_out = dest_name
+        return jsonify({'ok': True, 'copied_to': dest_name, 'config_updated': cfg_updated, 'title': title_out})
+    except Exception:
+        return jsonify({'error': 'internal'}), 500
 
 @app.route('/api/models/command', methods=['POST'])
 def api_models_command():

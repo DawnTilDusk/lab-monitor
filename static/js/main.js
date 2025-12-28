@@ -548,7 +548,7 @@ window.addEventListener('beforeunload', function() {
 function initModelCards() {
     const grid = document.getElementById('models-grid');
     if (!grid) return;
-    let models = generateFakeModels(20);
+    let models = [];
     const render = () => {
         grid.innerHTML = '';
         models.forEach((m, idx) => {
@@ -622,7 +622,16 @@ function initModelCards() {
             grid.appendChild(card);
         });
     };
-    render();
+    const load = () => {
+        fetch('/api/model-card').then(r => r.json()).then(cfg => {
+            models = (cfg && Array.isArray(cfg.models)) ? cfg.models : (Array.isArray(cfg) ? cfg : []);
+            render();
+        }).catch(_ => {
+            models = generateFakeModels(20);
+            render();
+        });
+    };
+    load();
     grid.addEventListener('click', e => {
         const btn = e.target;
         const card = btn.closest('.model-card');
@@ -642,7 +651,18 @@ function initModelCards() {
             }
         } else if (btn.classList.contains('action-download')) {
             const idx = Number(card.dataset.idx || -1);
-            if (idx >= 0) downloadModelJSON(models[idx]);
+            if (idx >= 0) {
+                const payload = models[idx] || {};
+                fetch('/api/model-card/download', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+                  .then(r=>r.json()).then(res=>{
+                    if (res && !res.error) {
+                        const title = (res.title || payload.name || '模型');
+                        showSuccess(`下载成功，已部署 ${title}`);
+                    } else {
+                        showError('下载失败');
+                    }
+                  }).catch(()=>{ showError('下载失败'); });
+            }
         } else if (btn.classList.contains('action-like')) {
             const idx = Number(card.dataset.idx || -1);
             if (idx >= 0) {
